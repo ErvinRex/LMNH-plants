@@ -13,14 +13,21 @@ async def fetch_json(session, url):
 
 
 async def main():
-    urls = [f"https://data-eng-plants-api.herokuapp.com/plants/{i}" for i in range(51)]
-    async with aiohttp.ClientSession() as session:
-        tasks = [fetch_json(session, url) for url in urls]
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-        return responses
+    while True:
+        current_time = time.time()
+
+        seconds_until_next_minute = 60 - (current_time % 60)
+
+        await asyncio.sleep(seconds_until_next_minute)
+
+        urls = [
+            f"https://data-eng-plants-api.herokuapp.com/plants/{i}" for i in range(51)
+        ]
+        async with aiohttp.ClientSession() as session:
+            tasks = [fetch_json(session, url) for url in urls]
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            print(responses)
 
 
 if __name__ == "__main__":
-    start_time = time.time()
     results = asyncio.run(main())
-    end_time = time.time()
