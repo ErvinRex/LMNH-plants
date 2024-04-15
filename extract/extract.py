@@ -2,6 +2,7 @@ import aiohttp
 import asyncio
 import time
 
+
 async def fetch_json(session, url):
     try:
         async with session.get(url) as response:
@@ -10,6 +11,7 @@ async def fetch_json(session, url):
     except aiohttp.ClientError as e:
         print(f"An error occurred: {e}")
 
+
 async def main():
     urls = [f"https://data-eng-plants-api.herokuapp.com/plants/{i}" for i in range(51)]
     async with aiohttp.ClientSession() as session:
@@ -17,8 +19,8 @@ async def main():
         responses = await asyncio.gather(*tasks, return_exceptions=True)
         return responses
 
+
 if __name__ == "__main__":
     start_time = time.time()
     results = asyncio.run(main())
     end_time = time.time()
-    print(f"Time taken: {end_time - start_time} seconds")
