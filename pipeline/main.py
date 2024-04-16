@@ -33,11 +33,9 @@ async def main():
     )
 
     while True:
-        # current_time = time.time()
-        # seconds_until_next_minute = 60 - (current_time % 60)
-        # await asyncio.sleep(seconds_until_next_minute)
-
-        # start_time = time.time()
+        current_time = time.time()
+        seconds_until_next_minute = 60 - (current_time % 60)
+        await asyncio.sleep(seconds_until_next_minute)
 
         urls = [
             f"https://data-eng-plants-api.herokuapp.com/plants/{i}" for i in range(51)
@@ -48,8 +46,6 @@ async def main():
         transform_data = transform(extract_data)
 
         upload_data(transform_data, conn)
-
-        # print(time.time() - start_time)
 
 
 if __name__ == "__main__":
