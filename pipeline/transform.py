@@ -1,19 +1,19 @@
 import json
 import psycopg2
 
-def get_test_file():
-    with open('./test/result.json', 'r') as file:
-        return json.load(file)
+
 def transform(data:list[dict]) -> dict:
 
     tables = {'images':[],'recording':[],'botanist':[],'plant':[],'origin':[]}
-    for id_, data in enumerate(json):
+    print(len(data))
+    for id_, data in enumerate(data):
         if data:
             botanist_email = data.get('botanist', {}).get('email',None)
             botanist_name = data.get('botanist', {}).get('name', None)
             first_name = botanist_name.split(' ')[0]
             second_name = botanist_name.split(' ')[1]
             botanist_phone = data.get('botanist', {}).get('phone', None)
+        
 
             
             images = data.get('images')
@@ -22,7 +22,6 @@ def transform(data:list[dict]) -> dict:
                 license_name = images.get('license_name', None)
                 license_url = images.get('license_url', None)
                 original_url = images.get('original_url', None)
-                license_name = None
             
 
             last_watered = data.get('last_watered', None)
@@ -47,8 +46,12 @@ def transform(data:list[dict]) -> dict:
             tables['recording'].append((plant_id,recording_taken,last_watered,soil_moisture,temperature))
             tables['origin'].append((lon,lat,place_name,country_code,timezone))
             tables['botanist'].append((botanist_email,botanist_phone,botanist_phone,first_name,second_name))
-            return tables
+    return tables
+
+    
+def get_test_file():
+    with open('./test/result.json', 'r') as file:
+        return json.load(file)
+    
 json = get_test_file()
-transform(json)
-    
-    
+print(transform(json)['images'][6])
