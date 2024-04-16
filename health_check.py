@@ -4,6 +4,13 @@ and checks for anomalous readings, if present, sends an email using
 SES
 """
 
+
+def get_merged_data(conn):
+    """Access short-term database to get merged data"""
+
+    sql_query
+
+
 df = pd.read()
 
 
