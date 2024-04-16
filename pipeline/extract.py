@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import time
+from transform import transform
 
 
 async def fetch_json(session, url):
@@ -12,9 +13,6 @@ async def fetch_json(session, url):
         print(f"An error occurred: {e}")
 
 
-def transform():
-    print("transforming...")
-
 
 async def main():
     while True:
@@ -22,7 +20,7 @@ async def main():
 
         seconds_until_next_minute = 60 - (current_time % 60)
 
-        await asyncio.sleep(seconds_until_next_minute)
+        # await asyncio.sleep(seconds_until_next_minute)
 
         start_time = time.time()
 
@@ -33,7 +31,10 @@ async def main():
         async with aiohttp.ClientSession() as session:
             tasks = [fetch_json(session, url) for url in urls]
             responses = await asyncio.gather(*tasks, return_exceptions=True)
+        print(transform(responses))
+
+        
 
         print(time.time() - start_time)
+asyncio.run(main())
 
-        transform()
