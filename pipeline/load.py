@@ -1,9 +1,5 @@
 import psycopg2
 
-conn = get_db()
-
-load_env()
-
 
 def get_db():
     return psycopg2.connect(
@@ -13,3 +9,6 @@ def get_db():
         port=environ["DATABASE_PORT"],
         database=environ["DATABASE_NAME"],
     )
+
+
+conn = get_db()

@@ -2,6 +2,7 @@ import asyncio
 import time
 from dotenv import load_dotenv
 from extract import fetch_data_from_endpoints
+from transform import transform
 from os import environ as ENV
 
 # Fetch AWS credentials from .env
@@ -31,6 +32,10 @@ async def main():
         ]
 
         extract_data = await fetch_data_from_endpoints(urls)
+
+        transform_data = transform(extract_data)
+
+        print(transform_data)
 
         # print(time.time() - start_time)
 

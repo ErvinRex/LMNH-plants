@@ -92,5 +92,7 @@ venv/
 .venv
 *.xml
 *.env
-*.csv
+*.civ
 data/
+
+pipeline/.env
