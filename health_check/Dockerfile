@@ -1,9 +1,10 @@
+FROM public.ecr.aws/lambda/python:3.12
 
-FROM python:latest
-
-COPY requirements.txt .
-COPY health_checky.py .
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
 
 RUN pip install -r requirements.txt
 
-CMD python3 health_check.py
+COPY health_check.py ${LAMBDA_TASK_ROOT}
+
+
+CMD [ "health_check.handler" ]
