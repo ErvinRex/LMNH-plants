@@ -7,14 +7,12 @@ import pandas as pd
 from datetime import datetime,timedelta,timezone
 from os import environ as ENV
 
+from boto3 import client
 from dotenv import load_dotenv
 from pymssql import connect
-from boto3 import client
-load_dotenv()
 
 
-def get_mock_data():
-    return pd.read_csv('./test/plant_recordings.csv')
+
 
 def get_db_connection(config: dict) -> connect:
     """Returns database connection."""
@@ -30,7 +28,7 @@ def get_db_connection(config: dict) -> connect:
 
 
 def get_df(conn: connect) -> pd.DataFrame:
-    """Returns a Dataframe of method data from database."""
+    """Returns a Dataframe of the database"""
 
     query = """ 
             SELECT *
@@ -47,12 +45,12 @@ def get_df(conn: connect) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 def send_email(sesclient,html):
+    """Sends email using BOTO3"""
     sesclient.send_email(
     Source='trainee.dominic.chambers@sigmalabs.co.uk',
     Destination={
         'ToAddresses': [
              'trainee.ervin.rexhepi@sigmalabs.co.uk','trainee.adam.osullivan@sigmalabs.co.uk','trainee.dominic.chambers@sigmalabs.co.uk']
-       
     },
     Message={
         'Subject': {
@@ -65,20 +63,26 @@ def send_email(sesclient,html):
         }
     })
 
-def is_healthy_moisture(df:pd.DataFrame) -> bool:
+def get_anomolous_moisture(df:pd.DataFrame) -> pd.DataFrame:
+    """This function returns any anomolies in moisture over the last hour
+       we assume that any anomolies are 2.5 standard deviations above the mean."""
+    
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     mean_moist = df.groupby('plant_id')['soil_moisture'].mean().reset_index()
     std_moist = df.groupby('plant_id')['soil_moisture'].std().reset_index()
     merged_df = pd.merge(mean_moist,std_moist,on='plant_id').rename(columns={'soil_moisture_x':'mean','soil_moisture_y':'std'})
-    merged_df['anomolous +'] =  merged_df['mean'] + merged_df['std'].apply(lambda x: x*1.5) 
-    merged_df['anomolous -'] = merged_df['mean'] - merged_df['std'].apply(lambda x: x*1.5)
+    merged_df['anomolous +'] =  merged_df['mean'] + merged_df['std'].apply(lambda x: x*2.5) 
+    merged_df['anomolous -'] = merged_df['mean'] - merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df,df_in_last_hour,on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
     return merge_2[['plant_id', 'soil_moisture']]
 
-def is_healthy_temp(df:pd.DataFrame) -> bool:
+def get_anomolous_temp(df:pd.DataFrame) -> pd.DataFrame:
+    """This function returns any anomolies in temperature over the last hour
+       we assume that any anomolies are 2.5 standard deviations above the mean."""
+    
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
@@ -91,20 +95,33 @@ def is_healthy_temp(df:pd.DataFrame) -> bool:
     merge_2 = merge_2[merge_2.apply(lambda x: (x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
     return merge_2[['plant_id', 'temperature']]
 
+def get_missing_values(df:pd.DataFrame) -> set :
+    """If any plants did not have a reading in the past hour we notify the stakeholders."""
+    last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
+    df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
+    df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
+    values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
+    expected_values = {i for i in range(51)}
+    ids_not_found = expected_values-values_in_hour
+    return ids_not_found 
 
 
-def is_missing_time():
-    pass
+
 if __name__ == "__main__":
     load_dotenv()
     conn = get_db_connection(ENV)
     df = get_df(conn)
-    moist_df = is_healthy_moisture(df)
-    temp_df = is_healthy_temp(df)
+    get_missing_values(df)
+    moist_df = get_anomolous_moisture(df)
+    temp_df = get_anomolous_temp(df)
     moist_html = moist_df.to_html()
     temp_html = temp_df.to_html()
+    missing =f"""     <div style='padding: 10px;'>
+        <h3>We could not find any readings for the following plant IDs:</h3>
+        <p>{get_missing_values(df)}</p> 
+    </div>""" if get_missing_values(df) else ''
 
-    combined_html = f"""
+    combined_html = f"""{missing}
     <div style='display: table; width: 100%;'>
         <div style='display: table-cell; padding: 10px;'>
             <h2>Anomalous Moisture Readings</h2>  <!-- Title for moisture DataFrame -->
@@ -114,12 +131,9 @@ if __name__ == "__main__":
             <h2>Anomalous Temperature Readings</h2>  <!-- Title for temperature DataFrame -->
             {temp_html}
         </div>
-    </div>
+</div>
+
     """
-
-
-
-
 
     if not moist_df.empty and not temp_df.empty:
         sesclient = client("ses",
