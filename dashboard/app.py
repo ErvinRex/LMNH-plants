@@ -75,7 +75,6 @@ def get_plant_details(conn, plant_id_selected: int):
         curr.execute(sql_query, plant_id_selected)
         row = curr.fetchone()
 
-    print(row)
     plant_name = row.get('plant_name')
     scientific_name = row.get('scientific_name')
     origin = f"{row.get('country_code')}, {row.get('place_name')}, {row.get('timezone')}"
