@@ -1,11 +1,12 @@
 import asyncio
+from os import environ as ENV
 
 from dotenv import load_dotenv
-from extract import fetch_data_from_endpoints
-from transform import transform
-from load import upload_data
-from os import environ as ENV
 from pymssql import connect
+
+from extract import fetch_data_from_endpoints
+from load import upload_data
+from transform import transform
 
 load_dotenv()
 
@@ -38,3 +39,6 @@ async def main():
 
 def handler(event, context):
     asyncio.run(main())
+
+
+handler("", "")

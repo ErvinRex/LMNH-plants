@@ -1,62 +1,112 @@
+from __future__ import annotations
+
+import re
 from datetime import datetime
 
+from entities import Recording, Botanist, Origin, Plant, Image
 
-def transform(data: list[dict]) -> dict:
-    tables = {"images": [], "recording": [], "botanist": [], "plant": [], "origin": []}
+EXPECTED_KEYS = {"plant_id", "botanist", "name", "origin_location", "recording_taken"}
 
-    for id_, data in enumerate(data):
-        if data:
-            botanist_email = data.get("botanist", {}).get("email", None)
-            botanist_name = data.get("botanist", {}).get("name", None)
-            first_name = botanist_name.split(" ")[0]
-            second_name = botanist_name.split(" ")[1]
-            botanist_phone = data.get("botanist", {}).get("phone", None)
 
-            images = data.get("images")
-            if images:
-                lic = images.get("license", None)
-                license_name = images.get("license_name", None)[:29]
-                license_url = images.get("license_url", None)
-                original_url = images.get("original_url", None)
-            else:
-                lic = None
-                license_name = None
-                license_url = None
-                original_url = None
+def transform(data: list[dict]) -> list[Recording]:
+    recordings = []
 
-            last_watered = data.get("last_watered", None)
-            last_watered = datetime.strptime(
-                last_watered, "%a, %d %b %Y %H:%M:%S %Z"
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            plant_name = data.get("name", None)
-            origin_location = data.get("origin_location", None)
-            if origin_location:
-                lat = origin_location[0]
-                lon = origin_location[1]
-                place_name = origin_location[2]
-                country_code = origin_location[3]
-                timezone = origin_location[4]
+    for item in data:
+        if not item or not validate_keys(item):
+            continue
 
-            plant_id = data.get("plant_id", None)
-            recording_taken = data.get("recording_taken", None)
-            scientific_name = data.get("scientific_name", None)
-            if scientific_name:
-                scientific_name = scientific_name[0]
-            soil_moisture = data.get("soil_moisture", None)
-            temperature = data.get("temperature", None)
-            tables["plant"].append((plant_name, id_, scientific_name))
-            tables["images"].append((license_name, license_url, original_url, lic))
-            tables["recording"].append(
-                (plant_id, recording_taken, last_watered, soil_moisture, temperature)
+        # Extract origin data
+        origin_data = item.get("origin_location")
+        origin = Origin(
+            longitude=float(origin_data[0]),
+            latitude=float(origin_data[1]),
+            country_code=origin_data[3],
+            place_name=origin_data[2],
+            timezone=origin_data[4],
+        )
+
+        # Extract and clean plant data
+        plant_name = item.get("name", "").strip(" ").strip(",").title()
+        scientific_name: str | None = item.get("scientific_name", [None])[0]
+        scientific_name = clean_scientific_name(scientific_name)
+
+        plant = Plant(
+            name=plant_name,
+            id=item.get("plant_id"),
+            scientific_name=scientific_name,
+            origin=origin,
+        )
+
+        # Extract and clean botanist data
+        botanist_data = item.get("botanist")
+        first_name, last_name = split_full_name(botanist_data.get("name"))
+
+        botanist = Botanist(
+            email=botanist_data.get("email"),
+            phone=botanist_data.get("phone"),
+            first_name=first_name,
+            last_name=last_name,
+        )
+
+        # Extract and clean image data
+        image_data = item.get("images")
+        if image_data and "upgrade_access.jpg" not in image_data.get("license_url"):
+            image = Image(
+                original_url=image_data.get("original_url"),
+                license=image_data.get("license"),
+                license_name=image_data.get("license_name"),
+                license_url=image_data.get("license_url"),
             )
-            tables["origin"].append((lon, lat, place_name, country_code, timezone))
-            tables["botanist"].append(
-                (
-                    botanist_email,
-                    botanist_phone,
-                    first_name,
-                    second_name,
-                )
-            )
+        else:
+            image = None
 
-    return tables
+        # Extract recording data
+        last_watered = item.get("last_watered")
+        if last_watered:
+            try:
+                last_watered = datetime.strptime(
+                    last_watered, "%a, %d %b %Y %H:%M:%S %Z"
+                ).strftime("%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                last_watered = None
+
+        recording = Recording(
+            plant=plant,
+            recording_taken=item.get("recording_taken"),
+            last_watered=last_watered,
+            soil_moisture=item.get("soil_moisture"),
+            temperature=item.get("temperature"),
+            botanist=botanist,
+            image=image,
+        )
+
+        recordings.append(recording)
+
+    return recordings
+
+
+def validate_keys(data: dict) -> bool:
+    return all([key in data.keys() for key in EXPECTED_KEYS])
+
+
+def clean_scientific_name(text: str) -> str | None:
+    """Clean a plant species scientific name. If the output is not a valid scientific name, returns None."""
+    if not text:
+        return None
+
+    pattern = r"'[^']*'"
+
+    # Use re.sub() to replace matched patterns with an empty string
+    cleaned_text = re.sub(pattern, "", text).strip().title()
+
+    if len(cleaned_text.split(" ")) != 2:
+        return None
+
+    return cleaned_text
+
+
+def split_full_name(name: str) -> tuple[str, str]:
+    first_name = name.split()[0].title()
+    last_name = " ".join(name.split()[1:]).title()
+
+    return first_name, last_name
