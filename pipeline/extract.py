@@ -10,9 +10,10 @@ async def fetch_json(session, url):
     except aiohttp.ClientError as e:
         print(f"An error occurred: {e}")
 
-
+        
 async def fetch_data_from_endpoints(urls: list[str]):
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_json(session, url) for url in urls]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
         return responses
+

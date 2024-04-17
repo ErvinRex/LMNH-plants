@@ -93,6 +93,8 @@ venv/
 *.xml
 *.env
 *.civ
+*.csv
 data/
-
+.env
 pipeline/.env
+

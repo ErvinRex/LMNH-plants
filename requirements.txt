@@ -1,1 +1,4 @@
 aiohttp
+boto3
+python-dotenv
+pymssql
