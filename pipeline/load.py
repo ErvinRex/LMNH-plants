@@ -28,7 +28,7 @@ def upload_data(data: dict, conn: Connection) -> None:
         # Get ID of image if exists, otherwise upload
         image = data["images"][i]
         image_id = get_image_id(cursor, image)
-        if image_id is None:
+        if not all([x is None for x in image]) and image_id is None:
             image_id = upload_image(conn, cursor, image)
 
         # Get ID of botanist if exists, otherwise upload

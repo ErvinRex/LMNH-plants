@@ -1,12 +1,12 @@
-# 1. Base image
-FROM python:latest
+FROM public.ecr.aws/lambda/python:3.12
 
-# 2. Copy files
-COPY requirements.txt .
-COPY extract.py .
-COPY main.py .
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
 
-# 3. Install dependencies
 RUN pip install -r requirements.txt
 
-CMD python3 main.py
+COPY lambda_function.py ${LAMBDA_TASK_ROOT}
+COPY extract.py ${LAMBDA_TASK_ROOT}
+COPY load.py ${LAMBDA_TASK_ROOT}
+COPY transform.py ${LAMBDA_TASK_ROOT}
+
+CMD [ "lambda_function.handler" ]
