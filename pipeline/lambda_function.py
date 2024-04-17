@@ -39,6 +39,3 @@ async def main():
 
 def handler(event, context):
     asyncio.run(main())
-
-
-handler("", "")
