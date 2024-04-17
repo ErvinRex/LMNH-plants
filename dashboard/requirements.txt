@@ -1,0 +1,8 @@
+streamlit
+pandas
+pylint
+pytest
+altair
+python-dotenv
+boto3
+pymssql
