@@ -7,14 +7,59 @@ import boto3
 import os
 from datetime import datetime, timedelta, timezone
 import pandas as pd
-from datetime import datetime, timedelta, timezone
 from os import environ as ENV
 from boto3 import client
 from dotenv import load_dotenv
 from pymssql import connect
 
 
-def get_db_connection(config: dict) -> connect:
+def handler(event, context):
+    """This function makes the lambda function work  """
+    conn = get_db_connection(ENV)
+    df = get_df(conn)
+    load_dotenv()
+    moist_df = get_anomolous_moisture(df)
+    temp_df = get_anomolous_temp(df)
+    missing_ids = get_missing_values(df)
+
+    moist_html = moist_df.to_html(
+    ) if not moist_df.empty else "<p>No moisture anomalies found.</p>"
+    temp_html = temp_df.to_html(
+    ) if not temp_df.empty else "<p>No temperature anomalies found.</p>"
+    missing_html = f"<h3>Missing plant IDs in the last hour: {missing_ids}</h3>" if missing_ids else "<p>All plant IDs reported in the last hour.</p>"
+
+    combined_html = f"""
+    <html>
+        <body>
+            {missing_html}
+            <div style='display: table; width: 100%;'>
+                <div style='display: table-cell; padding: 10px;'>
+                    <h2>Anomalous Moisture Readings</h2>
+                    {moist_html}
+                </div>
+                <div style='display: table-cell; padding: 10px;'>
+                    <h2>Anomalous Temperature Readings</h2>
+                    {temp_html}
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+
+    if not moist_df.empty or not temp_df.empty or missing_ids:
+        ses_client = client("ses",
+                            aws_access_key_id=ENV["AWS_K"],
+                            aws_secret_access_key=ENV["AWS_SKEY"],
+                            region_name='eu-west-2')
+        send_email(ses_client, combined_html)
+
+    return {
+        'statusCode': 200,
+        'body': 'Processing complete. Email sent if anomalies were found.'
+    }
+
+
+def get_db_connection(config: dict) -> None:
     """Returns database connection."""
 
     return connect(
@@ -27,7 +72,7 @@ def get_db_connection(config: dict) -> connect:
     )
 
 
-def get_df(conn: connect) -> pd.DataFrame:
+def get_df(conn: None) -> pd.DataFrame:
     """Returns a Dataframe of the database"""
 
     query = """ 
@@ -115,49 +160,3 @@ def get_missing_values(df: pd.DataFrame) -> set:
     expected_values = {i for i in range(51)}
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
-
-
-def lambda_handler(event, context):
-    """This function makes the lambda function work  """
-    conn = get_db_connection(ENV)
-    df = get_df(conn)
-
-    moist_df = get_anomolous_moisture(df)
-    temp_df = get_anomolous_temp(df)
-    missing_ids = get_missing_values(df)
-
-    moist_html = moist_df.to_html(
-    ) if not moist_df.empty else "<p>No moisture anomalies found.</p>"
-    temp_html = temp_df.to_html(
-    ) if not temp_df.empty else "<p>No temperature anomalies found.</p>"
-    missing_html = f"<h3>Missing plant IDs in the last hour: {missing_ids}</h3>" if missing_ids else "<p>All plant IDs reported in the last hour.</p>"
-
-    combined_html = f"""
-    <html>
-        <body>
-            {missing_html}
-            <div style='display: table; width: 100%;'>
-                <div style='display: table-cell; padding: 10px;'>
-                    <h2>Anomalous Moisture Readings</h2>
-                    {moist_html}
-                </div>
-                <div style='display: table-cell; padding: 10px;'>
-                    <h2>Anomalous Temperature Readings</h2>
-                    {temp_html}
-                </div>
-            </div>
-        </body>
-    </html>
-    """
-
-    if not moist_df.empty or not temp_df.empty or missing_ids:
-        ses_client = client("ses",
-                            aws_access_key_id=os.e["AWS_ACCESS_KEY"],
-                            aws_secret_access_key=os.e["AWS_SECRET_ACCESS_KEY"],
-                            region_name='eu-west-2')
-        send_email(ses_client, combined_html)
-
-    return {
-        'statusCode': 200,
-        'body': 'Processing complete. Email sent if anomalies were found.'
-    }
