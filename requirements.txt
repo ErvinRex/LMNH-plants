@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 python-dotenv
 pymssql
 pandas
 boto3
+=======
+aiohttp
+boto3
+python-dotenv
+pymssql
+>>>>>>> 105fad324bb8161f746d4de27cc2f34633157612
