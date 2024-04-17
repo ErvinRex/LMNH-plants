@@ -3,7 +3,7 @@ Python script that extracts recent (24hr) plant data from LMNH
 and checks for anomalous readings, if present, sends an email using
 SES
 """
-import boto3
+from boto3 import client
 import os
 from datetime import datetime, timedelta, timezone
 import pandas as pd
@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from pymssql import connect
 
 
-def handler(event, context):
+def handler(event, context) -> dict:
     """This function makes the lambda function work  """
     conn = get_db_connection(ENV)
     df = get_df(conn)
@@ -59,7 +59,7 @@ def handler(event, context):
     }
 
 
-def get_db_connection(config: dict) -> None:
+def get_db_connection(config: dict) -> client:
     """Returns database connection."""
 
     return connect(
@@ -88,7 +88,7 @@ def get_df(conn: None) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def send_email(sesclient, html):
+def send_email(sesclient, html) -> None:
     """Sends email using BOTO3"""
     sesclient.send_email(
         Source='trainee.dominic.chambers@sigmalabs.co.uk',
