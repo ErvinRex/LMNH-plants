@@ -114,7 +114,7 @@ def send_email(sesclient:client, html:str) -> None:
 
 def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
     """This function returns any anomolies in a specific column over the last hour
-       we assume that any anomolies are 2.5 standard deviations above the mean."""
+       we assume that any anomolies are 2.5 standard deviations above or below the mean."""
 
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
@@ -141,6 +141,6 @@ def get_missing_values(df: pd.DataFrame) -> set:
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {range(51)}
+    expected_values = {i for i in range(51)}
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
