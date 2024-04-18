@@ -139,8 +139,10 @@ def get_realtime_graph(conn: connect,
     temp = base.mark_line(stroke="orangered").encode(
         alt.Y("temperature").title("temperature", titleColor="red"))
 
-    graph = alt.layer(soil, temp).resolve_scale(
-        y='independent').configure_axisLeft(labelColor='orange').configure_axisRight(labelColor='blue')
+    graph = alt.layer(soil, temp
+                      ).resolve_scale(y='independent'
+                                      ).configure_axisLeft(titleColor='chartreuse'
+                                                           ).configure_axisRight(titleColor='yellow')
 
     return graph
 
