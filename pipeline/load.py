@@ -1,27 +1,28 @@
+"""Loads transformed data into a RDS database."""
+
 from __future__ import annotations
 
 from pymssql import Connection, Cursor
 
 from entities import Recording, Origin, Plant, Image, Botanist
 
-# NEWTSET3
-
 
 def upload_data(data: list[Recording], conn: Connection) -> None:
+    """
+    Uploads transformed data to the specified database. Tries to obtain the keys of
+    existing entities in the database; if it does not exist, uploads the entity.
+    """
     cursor = conn.cursor()
 
     for item in data:
-        # Get ID of origin if exists, otherwise upload
         origin_id = get_origin_id(cursor, item.plant.origin)
         if origin_id is None:
             origin_id = upload_origin(conn, cursor, item.plant.origin)
 
-        # Get ID of plant if exists, otherwise upload
         plant_id = get_plant_id(cursor, item.plant)
         if plant_id is None:
             upload_plant(conn, cursor, item.plant, origin_id)
 
-        # Get ID of image if exists, otherwise upload
         if item.image:
             image_id = get_image_id(cursor, item.image)
             if image_id is None:
@@ -29,18 +30,20 @@ def upload_data(data: list[Recording], conn: Connection) -> None:
         else:
             image_id = None
 
-        # Get ID of botanist if exists, otherwise upload
         botanist_id = get_botanist_id(cursor, item.botanist)
         if botanist_id is None:
             botanist_id = upload_botanist(conn, cursor, item.botanist)
 
-        # Upload recording
-        upload_recording(conn, cursor, item, item.plant.id, image_id, botanist_id)
+        upload_recording(conn, item, item.plant.id, image_id, botanist_id)
 
     conn.close()
 
 
 def get_origin_id(cursor: Cursor, origin: Origin) -> int | None:
+    """
+    Attempts to match the origin object to an existing entity in the database and extract
+    its primary key. Otherwise, returns None.
+    """
     cursor.execute(
         """
         SELECT origin_id
@@ -57,6 +60,7 @@ def get_origin_id(cursor: Cursor, origin: Origin) -> int | None:
 
 
 def upload_origin(conn: Connection, cursor: Cursor, origin: Origin) -> int:
+    """Uploads an origin object to the database, returning the new ID of the uploaded entity."""
     sql = """
                 INSERT INTO s_beta.origin
                     ("longitude", "latitude", "place_name", "country_code", "timezone")
@@ -80,6 +84,10 @@ def upload_origin(conn: Connection, cursor: Cursor, origin: Origin) -> int:
 
 
 def get_plant_id(cursor: Cursor, plant: Plant) -> int | None:
+    """
+    Attempts to match the plant object to an existing entity in the database and
+    extract its primary key. Otherwise, returns None.
+    """
     cursor.execute(
         """
         SELECT plant_id
@@ -97,6 +105,7 @@ def get_plant_id(cursor: Cursor, plant: Plant) -> int | None:
 def upload_plant(
     conn: Connection, cursor: Cursor, plant: Plant, origin_id: int
 ) -> None:
+    """Uploads a plant object to the database, returning the new ID of the uploaded entity."""
     sql = """
         INSERT INTO s_beta.plant
             ("plant_id", "plant_name", "scientific_name", "origin_id")
@@ -112,6 +121,10 @@ def upload_plant(
 
 
 def get_image_id(cursor: Cursor, image: Image) -> int | None:
+    """
+    Attempts to match the image object to an existing entity in the database and
+    extract its primary key. Otherwise, returns None.
+    """
     cursor.execute(
         """
         SELECT image_id
@@ -127,6 +140,7 @@ def get_image_id(cursor: Cursor, image: Image) -> int | None:
 
 
 def upload_image(conn: Connection, cursor: Cursor, image: Image) -> int:
+    """Uploads an image object to the database, returning the new ID of the uploaded entity."""
     sql = """
         INSERT INTO s_beta.image
             ("original_url", "license", "license_name", "license_url")
@@ -144,6 +158,10 @@ def upload_image(conn: Connection, cursor: Cursor, image: Image) -> int:
 
 
 def get_botanist_id(cursor: Cursor, botanist: Botanist) -> int | None:
+    """
+    Attempts to match the botanist object to an existing entity in the database and
+    extract its primary key. Otherwise, returns None.
+    """
     cursor.execute(
         """
         SELECT botanist_id
@@ -167,6 +185,7 @@ def get_botanist_id(cursor: Cursor, botanist: Botanist) -> int | None:
 
 
 def upload_botanist(conn: Connection, cursor: Cursor, botanist: Botanist) -> int:
+    """Uploads a botanist object to the database, returning the new ID of the uploaded entity."""
     sql = """
             INSERT INTO s_beta.botanist
                 ("email", "phone_number", "first_name", "last_name")
@@ -185,12 +204,12 @@ def upload_botanist(conn: Connection, cursor: Cursor, botanist: Botanist) -> int
 
 def upload_recording(
     conn: Connection,
-    cursor: Cursor,
     recording: Recording,
     plant_id: int,
     image_id: int,
     botanist_id: int,
 ) -> None:
+    """Uploads a recording object to the database."""
     sql = """
         INSERT INTO s_beta.recording
             ("plant_id", "recording_taken", "last_watered", "soil_moisture", "temperature", "image_id", "botanist_id")
@@ -210,4 +229,4 @@ def upload_recording(
 
     conn.commit()
 
-    cursor.execute(sql, params)
+    conn.cursor().execute(sql, params)
