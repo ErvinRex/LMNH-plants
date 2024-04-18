@@ -2,49 +2,45 @@ from __future__ import annotations
 
 from pymssql import Connection, Cursor
 
-EXPECTED_KEYS = {"images", "recording", "botanist", "plant", "origin"}
+from entities import Recording, Origin, Plant, Image, Botanist
+
+# NEWTSET
 
 
-def upload_data(data: dict, conn: Connection) -> None:
-    if not validate_keys(data):
-        ...
-
+def upload_data(data: list[Recording], conn: Connection) -> None:
     cursor = conn.cursor()
 
-    for i in range(0, len(data["origin"]) - 1):
+    for item in data:
         # Get ID of origin if exists, otherwise upload
-        origin = data["origin"][i]
-        origin_id = get_origin_id(cursor, origin)
+        origin_id = get_origin_id(cursor, item.plant.origin)
         if origin_id is None:
-            origin_id = upload_origin(conn, cursor, origin)
+            origin_id = upload_origin(conn, cursor, item.plant.origin)
 
         # Get ID of plant if exists, otherwise upload
-        plant = data["plant"][i]
-        plant_id = get_plant_id(cursor, plant)
+        plant_id = get_plant_id(cursor, item.plant)
         if plant_id is None:
-            upload_plant(conn, cursor, plant, origin_id)
-            plant_id = plant[1]
+            upload_plant(conn, cursor, item.plant, origin_id)
 
         # Get ID of image if exists, otherwise upload
-        image = data["images"][i]
-        image_id = get_image_id(cursor, image)
-        if not all([x is None for x in image]) and image_id is None:
-            image_id = upload_image(conn, cursor, image)
+        if item.image:
+            image_id = get_image_id(cursor, item.image)
+            if image_id is None:
+                image_id = upload_image(conn, cursor, item.image)
+        else:
+            image_id = None
 
         # Get ID of botanist if exists, otherwise upload
-        botanist = data["botanist"][i]
-        botanist_id = get_botanist_id(cursor, botanist)
+        botanist_id = get_botanist_id(cursor, item.botanist)
         if botanist_id is None:
-            botanist_id = upload_botanist(conn, cursor, botanist)
+            botanist_id = upload_botanist(conn, cursor, item.botanist)
 
         # Upload recording
-        recording = data["recording"][i]
-        upload_recording(conn, cursor, recording, plant_id, image_id, botanist_id)
+        upload_recording(conn, cursor, item, item.plant.id, image_id, botanist_id)
 
-    conn.commit()
+    conn.close()
 
 
-def get_origin_id(cursor: Cursor, origin: tuple) -> int | None:
+def get_origin_id(cursor: Cursor, origin: Origin) -> int | None:
     cursor.execute(
         """
         SELECT origin_id
@@ -52,7 +48,7 @@ def get_origin_id(cursor: Cursor, origin: tuple) -> int | None:
         WHERE longitude = %s
         AND latitude = %s;
         """,
-        (origin[0], origin[1]),
+        (origin.longitude, origin.latitude),
     )
 
     res = cursor.fetchone()
@@ -60,7 +56,7 @@ def get_origin_id(cursor: Cursor, origin: tuple) -> int | None:
     return res["origin_id"] if res else None
 
 
-def upload_origin(conn: Connection, cursor: Cursor, origin: tuple) -> int:
+def upload_origin(conn: Connection, cursor: Cursor, origin: Origin) -> int:
     sql = """
                 INSERT INTO s_beta.origin
                     ("longitude", "latitude", "place_name", "country_code", "timezone")
@@ -68,7 +64,13 @@ def upload_origin(conn: Connection, cursor: Cursor, origin: tuple) -> int:
                     (%s, %s, %s, %s, %s);
                 """
 
-    params = (origin[0], origin[1], origin[2], origin[3], origin[4])
+    params = (
+        origin.longitude,
+        origin.latitude,
+        origin.place_name,
+        origin.country_code,
+        origin.timezone,
+    )
 
     cursor.execute(sql, params)
 
@@ -77,14 +79,14 @@ def upload_origin(conn: Connection, cursor: Cursor, origin: tuple) -> int:
     return int(cursor.lastrowid)
 
 
-def get_plant_id(cursor: Cursor, plant: tuple) -> int | None:
+def get_plant_id(cursor: Cursor, plant: Plant) -> int | None:
     cursor.execute(
         """
         SELECT plant_id
         FROM s_beta.plant
         WHERE plant_id = %s
         """,
-        (plant[1]),
+        plant.id,
     )
 
     res = cursor.fetchone()
@@ -92,7 +94,9 @@ def get_plant_id(cursor: Cursor, plant: tuple) -> int | None:
     return res["plant_id"] if res else None
 
 
-def upload_plant(conn: Connection, cursor: Cursor, plant: list, origin_id: int) -> None:
+def upload_plant(
+    conn: Connection, cursor: Cursor, plant: Plant, origin_id: int
+) -> None:
     sql = """
         INSERT INTO s_beta.plant
             ("plant_id", "plant_name", "scientific_name", "origin_id")
@@ -100,21 +104,21 @@ def upload_plant(conn: Connection, cursor: Cursor, plant: list, origin_id: int) 
             (%s, %s, %s, %s);
         """
 
-    params = (plant[1], plant[0], plant[2], origin_id)
+    params = (plant.id, plant.name, plant.scientific_name, origin_id)
 
     cursor.execute(sql, params)
 
     conn.commit()
 
 
-def get_image_id(cursor: Cursor, image: tuple) -> int | None:
+def get_image_id(cursor: Cursor, image: Image) -> int | None:
     cursor.execute(
         """
         SELECT image_id
         FROM s_beta.image
         WHERE original_url = %s
         """,
-        params=(image[2]),
+        params=image.original_url,
     )
 
     res = cursor.fetchone()
@@ -122,7 +126,7 @@ def get_image_id(cursor: Cursor, image: tuple) -> int | None:
     return res["image_id"] if res else None
 
 
-def upload_image(conn: Connection, cursor: Cursor, image: tuple) -> int:
+def upload_image(conn: Connection, cursor: Cursor, image: Image) -> int:
     sql = """
         INSERT INTO s_beta.image
             ("original_url", "license", "license_name", "license_url")
@@ -130,7 +134,7 @@ def upload_image(conn: Connection, cursor: Cursor, image: tuple) -> int:
             (%s, %s, %s, %s);
         """
 
-    params = (image[2], image[3], image[0], image[1])
+    params = (image.original_url, image.license, image.license_name, image.license_url)
 
     cursor.execute(sql, params)
 
@@ -139,7 +143,7 @@ def upload_image(conn: Connection, cursor: Cursor, image: tuple) -> int:
     return int(cursor.lastrowid)
 
 
-def get_botanist_id(cursor: Cursor, botanist: tuple) -> int | None:
+def get_botanist_id(cursor: Cursor, botanist: Botanist) -> int | None:
     cursor.execute(
         """
         SELECT botanist_id
@@ -149,7 +153,12 @@ def get_botanist_id(cursor: Cursor, botanist: tuple) -> int | None:
         AND first_name = %s
         AND last_name = %s;
         """,
-        params=(botanist[0], botanist[1], botanist[2], botanist[3]),
+        params=(
+            botanist.email,
+            botanist.phone,
+            botanist.first_name,
+            botanist.last_name,
+        ),
     )
 
     res = cursor.fetchone()
@@ -157,7 +166,7 @@ def get_botanist_id(cursor: Cursor, botanist: tuple) -> int | None:
     return res["botanist_id"] if res else None
 
 
-def upload_botanist(conn: Connection, cursor: Cursor, botanist: tuple) -> int:
+def upload_botanist(conn: Connection, cursor: Cursor, botanist: Botanist) -> int:
     sql = """
             INSERT INTO s_beta.botanist
                 ("email", "phone_number", "first_name", "last_name")
@@ -165,7 +174,7 @@ def upload_botanist(conn: Connection, cursor: Cursor, botanist: tuple) -> int:
                 (%s, %s, %s, %s);
             """
 
-    params = (botanist[0], botanist[1], botanist[2], botanist[3])
+    params = (botanist.email, botanist.phone, botanist.first_name, botanist.last_name)
 
     cursor.execute(sql, params)
 
@@ -177,7 +186,7 @@ def upload_botanist(conn: Connection, cursor: Cursor, botanist: tuple) -> int:
 def upload_recording(
     conn: Connection,
     cursor: Cursor,
-    recording: tuple,
+    recording: Recording,
     plant_id: int,
     image_id: int,
     botanist_id: int,
@@ -191,10 +200,10 @@ def upload_recording(
 
     params = (
         plant_id,
-        recording[1],
-        recording[2],
-        recording[3],
-        recording[4],
+        recording.recording_taken,
+        recording.last_watered,
+        recording.soil_moisture,
+        recording.temperature,
         image_id,
         botanist_id,
     )
@@ -202,7 +211,3 @@ def upload_recording(
     conn.commit()
 
     cursor.execute(sql, params)
-
-
-def validate_keys(data: dict) -> bool:
-    return all([key in EXPECTED_KEYS for key in data.keys()])
