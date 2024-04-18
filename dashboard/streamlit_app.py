@@ -2,14 +2,16 @@
 Python script for visualising and hosting a dashboard for LMNH plant data
 """
 
-from os import environ as ENV
+from os import environ as ENV, system
 from datetime import datetime, timezone, timedelta
+from dateutil.relativedelta import relativedelta
+from re import fullmatch
 from dotenv import load_dotenv
+from boto3 import client
+from pymssql import connect
 import pandas as pd
 import altair as alt
 import streamlit as st
-from boto3 import client
-from pymssql import connect
 
 
 def get_db_connection(config: dict) -> connect:
@@ -23,6 +25,42 @@ def get_db_connection(config: dict) -> connect:
         password=config["DB_PASSWORD"],
         as_dict=True
     )
+
+
+def check_within_timeframe(month: int,
+                           filename: str,
+                           current: datetime = datetime.today()) -> bool:
+
+    split = [int(num) for num in filename.split("/")[:3]]
+    file_date = datetime(split[0], split[1], split[2])
+
+    return file_date >= (current - relativedelta(month=month))
+
+
+def get_longterm_csv_names(client: client,
+                           month: int,
+                           bucket: str = "late-ordovician") -> str:
+    """Returns list of filenames of summary/anomalies.csv within a given timespan."""
+
+    filenames = [obj["Key"] for obj
+                 in client.list_objects(Bucket=bucket)["Contents"]
+                 if bool(fullmatch(r".{11}(?:summary|anomalies).csv", obj["Key"]))
+                 and check_within_timeframe(month, obj["Key"])]
+
+    return filenames
+
+
+def download_object(client: client,
+                    filenames: list[str],
+                    bucket: str = "late-ordovician",
+                    directory: str = "data") -> None:
+    """Returns a list of objects names in a named bucket in an S3 server."""
+
+    system(f"mkdir {directory}")
+
+    for filename in filenames:
+        path = f'{directory}/{filename}'
+        client.download_file(bucket, filename, path)
 
 
 def get_plant_selection(conn: connect, key: str) -> int:
@@ -39,11 +77,11 @@ def get_plant_selection(conn: connect, key: str) -> int:
     return plant_id_selected
 
 
-def get_timespan_slider(conn: connect, key: str) -> int:
+def get_timespan_slider(unit: str, span: int, key: str) -> int:
     """Returns timespan (by hours) slider for line graphs."""
 
-    return st.select_slider("time span (hours):",
-                            options=list(range(10, 0, -1)),
+    return st.select_slider(f"{unit}:",
+                            options=list(range(span, 0, -1)),
                             value=2,
                             key=key)
 
@@ -142,15 +180,15 @@ def get_realtime_graph(df: pd.DataFrame,
             "H", include_groups=False).mean().reset_index()
 
     base = alt.Chart(df).encode(
-        x=alt.X("recording_taken", title="time"))
-    soil = base.mark_line(stroke="yellowgreen").encode(
+        x=alt.X("recording_taken:T", title="time", axis=alt.Axis(format='%H:%M')))
+    soil = base.mark_line(stroke="turquoise").encode(
         alt.Y("soil_moisture", title="soil moisture"))
     temp = base.mark_line(stroke="orangered").encode(
         alt.Y("temperature").title("temperature", titleColor="red"))
     graph = alt.layer(soil, temp
                       ).resolve_scale(y='independent'
-                                      ).configure_axisLeft(titleColor='yellowgreen',
-                                                           labelColor="yellowgreen"
+                                      ).configure_axisLeft(titleColor='turquoise',
+                                                           labelColor="turquoise"
                                                            ).configure_axisRight(titleColor='orangered',
                                                                                  labelColor="orangered")
 
@@ -197,6 +235,7 @@ def get_realtime_stds(df: pd.DataFrame,
         as_=["metric", "stds"]
     ).mark_bar().encode(
         y=alt.Y('plant_id:N',
+                title="plant id",
                 sort=alt.EncodingSortField(field='total_nstd',
                                            order='descending')),
         x=alt.X('stds:Q',
@@ -205,7 +244,7 @@ def get_realtime_stds(df: pd.DataFrame,
         color=alt.Color('metric:N',
                         legend=None,
                         scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
-                                        range=['yellowgreen', 'orangered'])),
+                                        range=['turquoise', 'orangered'])),
         order=alt.Order("stds:Q", sort='descending')
     )
 
@@ -217,6 +256,10 @@ if __name__ == "__main__":
     load_dotenv()
 
     connection = get_db_connection(ENV)
+
+    S3 = client('s3',
+                aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
+                aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"])
 
     # ===== DASHBOARD: PAGE SETTING =====
     st.set_page_config(page_title="LMNH Plant Dashboard", page_icon="🌿", layout="wide",
@@ -261,7 +304,7 @@ if __name__ == "__main__":
             realtime_plant_id = get_plant_selection(
                 connection, "realtime_plant_id")
             realtime_timespan = get_timespan_slider(
-                connection, "realtime_timespan")
+                "hours", 12, "realtime_timespan")
         with realtime_col[1]:
             realtime_graph = get_realtime_graph(
                 realtime_df, realtime_plant_id, realtime_timespan)
@@ -276,7 +319,7 @@ if __name__ == "__main__":
             historical_plant_id = get_plant_selection(
                 connection, "historical_plant_id")
             historical_timespan = get_timespan_slider(
-                connection, "historical_timespan")
+                "months", 12, "historical_timespan")
         with historical[1]:
             pass
 
@@ -286,5 +329,6 @@ if __name__ == "__main__":
         st.altair_chart(realtime_std, use_container_width=True)
 
         st.subheader("Top Historical SD")
+        st.write(get_longterm_csv_names(S3, 1))
 
     connection.close()
