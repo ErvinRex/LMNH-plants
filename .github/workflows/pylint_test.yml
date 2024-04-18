@@ -25,7 +25,7 @@ jobs:
              pipeline/**.py
 
       - name: Run pipeline linting and testing if files changed
-        if: steps.changed-pipeline.outputs.test_any_changed == 'true'
+        if: steps.changed-pipeline.outputs.any_changed == 'true'
         run: |
           pip install -r pipeline/requirements.txt
           pytest pipeline
