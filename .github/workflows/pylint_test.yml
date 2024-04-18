@@ -17,6 +17,9 @@ jobs:
       - name: Install pylint
         run: pip install pylint
 
+      - name: Install pytest
+        run: pip install pytest
+
       - name: Get changes to pipeline
         id: changed-pipeline
         uses: tj-actions/changed-files@v44
@@ -24,11 +27,22 @@ jobs:
           files: |
              pipeline/**.py
 
-      - name: Run pipeline linting and testing if files changed
+      - name: Run pipeline testing if files changed
         if: steps.changed-pipeline.outputs.any_changed == 'true'
         run: |
           pip install -r pipeline/requirements.txt
           pytest pipeline
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+      - name: Run pipeline linting if files changed
+        if: steps.changed-pipeline.outputs.any_changed == 'true'
+        run: |
+          pip install -r pipeline/requirements.txt
           pylint pipeline/*.py --ignore-patterns=test_ --fail-under=8.5
         env:
           DB_USER: ${{ secrets.DB_USER }}
