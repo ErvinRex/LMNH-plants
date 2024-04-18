@@ -49,8 +49,8 @@ def handler(event, context) -> dict:
 
     if not moist_df.empty or not temp_df.empty or missing_ids:
         ses_client = client("ses",
-                            aws_access_key_id=ENV["AWS_K"],
-                            aws_secret_access_key=ENV["AWS_SKEY"],
+                            aws_access_key_id=ENV["aws_key"],
+                            aws_secret_access_key=ENV["aws_skey"],
                             region_name='eu-west-2')
         send_email(ses_client, combined_html)
 
@@ -127,9 +127,7 @@ def get_anomolous_moisture(df: pd.DataFrame) -> pd.DataFrame:
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
         x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
-    return merge_2[['plant_id', 'soil_moisture']] 
-
-
+    return merge_2[['plant_id', 'soil_moisture']]
 
 
 def get_anomolous_temp(df: pd.DataFrame) -> pd.DataFrame:
@@ -160,6 +158,6 @@ def get_missing_values(df: pd.DataFrame) -> set:
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {range(51)}
+    expected_values = {i for i in range(51)}
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
