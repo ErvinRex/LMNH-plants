@@ -40,7 +40,7 @@ class TestHealthCheck(unittest.TestCase):
         self.mock_db_conn.cursor.return_value.__enter__.return_value = self.mock_cursor
         self.mock_cursor.fetchall.return_value = self.example_data.to_dict('records')
 
-    
+
         self.ses_client_patcher = patch('health_check.client')
         self.mock_ses_client = self.ses_client_patcher.start()
 
