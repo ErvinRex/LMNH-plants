@@ -98,3 +98,6 @@ data/
 .env
 pipeline/.env
 *.tfvars
+*.tfstate
+*.tfstate.backup
+*.terraform.lock.hcl
