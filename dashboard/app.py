@@ -43,7 +43,7 @@ def get_timespan_slider(conn: connect, key: str) -> int:
     """Returns timespan (by hours) slider for line graphs."""
 
     return st.select_slider("time span (hours):",
-                            options=list(range(5, 0, -1)),
+                            options=list(range(10, 0, -1)),
                             value=2,
                             key=key)
 
@@ -107,11 +107,8 @@ def get_avg_metric(conn: connect,
     return round(avg), round(avg-avg_prev, 2)
 
 
-def get_realtime_graph(conn: connect,
-                       plant_id: int,
-                       hours: int,
-                       current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
-    """Returns real-time data as a line graph."""
+def get_realtime_df(conn: connect) -> pd.DataFrame:
+    """Returns real-time data as a pd.DF."""
 
     with conn.cursor() as curr:
         query = f"""
@@ -126,32 +123,100 @@ def get_realtime_graph(conn: connect,
     df = df.astype({"soil_moisture": "float64",
                     "temperature": "float64"})
 
+    return df
+
+
+def get_realtime_graph(df: pd.DataFrame,
+                       plant_id: int,
+                       hours: int,
+                       current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
+    """Returns real-time data as a line graph."""
+
     df = df[(current - df["recording_taken"] <= timedelta(hours=hours)) &
             (df["plant_id"] == plant_id) &
             (df["soil_moisture"] >= 0)]
 
+    if hours > 3:
+        df = df.set_index("recording_taken")
+        df = df.groupby("plant_id").resample(
+            "H", include_groups=False).mean().reset_index()
+
     base = alt.Chart(df).encode(
         x=alt.X("recording_taken", title="time"))
-
-    soil = base.mark_line(stroke="chartreuse").encode(
+    soil = base.mark_line(stroke="yellowgreen").encode(
         alt.Y("soil_moisture", title="soil moisture"))
-
     temp = base.mark_line(stroke="orangered").encode(
         alt.Y("temperature").title("temperature", titleColor="red"))
-
     graph = alt.layer(soil, temp
                       ).resolve_scale(y='independent'
-                                      ).configure_axisLeft(titleColor='chartreuse'
-                                                           ).configure_axisRight(titleColor='yellow')
+                                      ).configure_axisLeft(titleColor='yellowgreen',
+                                                           labelColor="yellowgreen"
+                                                           ).configure_axisRight(titleColor='orangered',
+                                                                                 labelColor="orangered")
 
     return graph
+
+
+def get_std(row: dict, df: pd.DataFrame, col: str) -> int:
+    """Compare minutely value to mean of past hour;
+    Returns std."""
+
+    last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
+    last_hour_vals = df[(df["plant_id"] == row["plant_id"]) &
+                        (df["recording_taken"] >= last_hour)][col]
+
+    mean = last_hour_vals.mean()
+    std = last_hour_vals.std()
+
+    nstd = (row[col] - mean) / std
+
+    return nstd
+
+
+def get_realtime_stds(df: pd.DataFrame,
+                      current: datetime = datetime.now(timezone.utc)):
+
+    df = df[(current - df["recording_taken"]) <= timedelta(hours=1)]
+
+    df["soil_moisture_nstd"] = df.apply(get_std,
+                                        args=(df, "soil_moisture"),
+                                        axis=1)
+    df["temperature_nstd"] = df.apply(get_std,
+                                      args=(df, "temperature"),
+                                      axis=1)
+
+    df = df[(current - df["recording_taken"]) <= timedelta(minutes=1)]
+
+    df["total_nstd"] = df["soil_moisture_nstd"].abs() + \
+        df["temperature_nstd"].abs()
+
+    df = df.sort_values("total_nstd", ascending=False).head(10)
+
+    chart = alt.Chart(df).transform_fold(
+        ["soil_moisture_nstd", "temperature_nstd"],
+        as_=["metric", "stds"]
+    ).mark_bar().encode(
+        y=alt.Y('plant_id:N',
+                sort=alt.EncodingSortField(field='total_nstd',
+                                           order='descending')),
+        x=alt.X('stds:Q',
+                axis=alt.Axis(title='standard deviation',
+                              orient='top')),
+        color=alt.Color('metric:N',
+                        legend=None,
+                        scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
+                                        range=['yellowgreen', 'orangered'])),
+        order=alt.Order("stds:Q", sort='descending')
+    )
+
+    return chart
 
 
 if __name__ == "__main__":
 
     load_dotenv()
 
-    conn = get_db_connection(ENV)
+    connection = get_db_connection(ENV)
 
     # ===== DASHBOARD: PAGE SETTING =====
     st.set_page_config(page_title="LMNH Plant Dashboard", page_icon="🌿", layout="wide",
@@ -162,56 +227,64 @@ if __name__ == "__main__":
     st.sidebar.subheader("Plant recordings, no better way to see 'em")
 
     with st.sidebar:
-        sidebar_plant_id = get_plant_selection(conn, "sidebar_plant_id")
+        sidebar_plant_id = get_plant_selection(connection, "sidebar_plant_id")
 
     st.sidebar.subheader("Plant Summary", divider="rainbow")
 
     plant_name, scientific_name, origin = get_plant_details(
-        conn, sidebar_plant_id)
+        connection, sidebar_plant_id)
 
     st.sidebar.write(f"Plant Name: {plant_name}")
     st.sidebar.write(f"Scientific Name: {scientific_name}")
     st.sidebar.write(f"Country, Location, Timezone: {origin}")
 
     # ===== DASHBOARD: MAIN =====
-    basic, stds = st.columns([.7, .3])
+    realtime_df = get_realtime_df(connection)
+
+    basic, stds = st.columns([.7, .3], gap="large")
 
     with basic:
         metrics = st.columns(3)
         with metrics[0]:
-            total_plant_count = get_total_plant_count(conn)
+            total_plant_count = get_total_plant_count(connection)
             st.metric("total plant count", total_plant_count)
         with metrics[1]:
-            soil_avg, soil_delta = get_avg_metric(conn, "soil_moisture")
+            soil_avg, soil_delta = get_avg_metric(connection, "soil_moisture")
             st.metric("avg soil moisture", soil_avg, soil_delta, "off")
         with metrics[2]:
-            temp_avg, temp_delta = get_avg_metric(conn, "temperature")
+            temp_avg, temp_delta = get_avg_metric(connection, "temperature")
             st.metric("avg temperature", temp_avg, temp_delta, "off")
 
-        realtime = st.columns([.15, .85])
-        with realtime[0]:
+        st.subheader("Real-time Soil Moisture and Temperature")
+        realtime_col = st.columns([.15, .85])
+        with realtime_col[0]:
             realtime_plant_id = get_plant_selection(
-                conn, "realtime_plant_id")
+                connection, "realtime_plant_id")
             realtime_timespan = get_timespan_slider(
-                conn, "realtime_timespan")
-        with realtime[1]:
+                connection, "realtime_timespan")
+        with realtime_col[1]:
             realtime_graph = get_realtime_graph(
-                conn, realtime_plant_id, realtime_timespan)
+                realtime_df, realtime_plant_id, realtime_timespan)
             st.altair_chart(
                 realtime_graph,
                 use_container_width=True
             )
 
+        st.subheader("Historical Soil Moisture and Temperature")
         historical = st.columns([.15, .85])
         with historical[0]:
             historical_plant_id = get_plant_selection(
-                conn, "historical_plant_id")
+                connection, "historical_plant_id")
             historical_timespan = get_timespan_slider(
-                conn, "historical_timespan")
+                connection, "historical_timespan")
         with historical[1]:
             pass
 
     with stds:
-        pass
+        st.subheader("Top Real-time SD")
+        realtime_std = get_realtime_stds(realtime_df)
+        st.altair_chart(realtime_std, use_container_width=True)
 
-    conn.close()
+        st.subheader("Top Historical SD")
+
+    connection.close()
