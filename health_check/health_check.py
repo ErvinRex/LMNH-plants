@@ -15,6 +15,7 @@ from boto3 import client
 
 def handler(event, context) -> dict:
     """This function makes the lambda function work  """
+
     conn = get_db_connection(ENV)
     df = get_df(conn)
     load_dotenv()
@@ -91,6 +92,7 @@ def get_df(conn: connect) -> pd.DataFrame:
 
 def send_email(sesclient:client, html:str) -> None:
     """Sends email using BOTO3"""
+
     sesclient.send_email(
         Source='trainee.dominic.chambers@sigmalabs.co.uk',
         Destination={
@@ -134,6 +136,7 @@ def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
+
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
