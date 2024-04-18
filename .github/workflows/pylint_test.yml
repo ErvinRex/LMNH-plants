@@ -51,7 +51,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
 
 
-        - name: Get changes to health_check
+      - name: Get changes to health_check
         id: changed-health_check
         uses: tj-actions/changed-files@v44
         with:
@@ -59,7 +59,7 @@ jobs:
              health_check/**.py
 
 
-        - name: Run health_check testing if files changed
+      - name: Run health_check testing if files changed
         if: steps.changed-health_check.outputs.any_changed == 'true'
         run: |
           pip install -r health_check/requirements.txt
@@ -72,7 +72,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
 
 
-        - name: Run health_check linting if files changed
+      - name: Run health_check linting if files changed
         if: steps.changed-health_check.outputs.any_changed == 'true'
         run: |
           pylint health_check/*.py --ignore-patterns=test_ --fail-under=8.5
@@ -84,7 +84,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
 
 
-        - name: Get changes to dashboard
+      - name: Get changes to dashboard
         id: changed-dashboard
         uses: tj-actions/changed-files@v44
         with:
@@ -92,7 +92,7 @@ jobs:
              dashboard/**.py
 
 
-        - name: Run dashboard testing if files changed
+      - name: Run dashboard testing if files changed
         if: steps.changed-dashboard.outputs.any_changed == 'true'
         run: |
           pip install -r dashboard/requirements.txt
@@ -105,7 +105,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
 
 
-        - name: Run dashboard linting if files changed
+      - name: Run dashboard linting if files changed
         if: steps.changed-dashboard.outputs.any_changed == 'true'
         run: |
           pylint dashboard/*.py --ignore-patterns=test_ --fail-under=8.5
@@ -117,7 +117,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
         
 
-        - name: Get changes to long_term
+      - name: Get changes to long_term
         id: changed-long_term
         uses: tj-actions/changed-files@v44
         with:
@@ -125,7 +125,7 @@ jobs:
              long_term/**.py
 
 
-        - name: Run long_term testing if files changed
+      - name: Run long_term testing if files changed
         if: steps.changed-long_term.outputs.any_changed == 'true'
         run: |
           pip install -r long_term/requirements.txt
@@ -138,7 +138,7 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
 
 
-        - name: Run long_term linting if files changed
+      - name: Run long_term linting if files changed
         if: steps.changed-long_term.outputs.any_changed == 'true'
         run: |
           pylint long_term/*.py --ignore-patterns=test_ --fail-under=8.5
