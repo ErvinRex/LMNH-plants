@@ -15,6 +15,7 @@ from boto3 import client
 
 def handler(event, context) -> dict:
     """This function makes the lambda function work  """
+
     conn = get_db_connection(ENV)
     df = get_df(conn)
     load_dotenv()
@@ -91,6 +92,7 @@ def get_df(conn: connect) -> pd.DataFrame:
 
 def send_email(sesclient:client, html:str) -> None:
     """Sends email using BOTO3"""
+
     sesclient.send_email(
         Source='trainee.dominic.chambers@sigmalabs.co.uk',
         Destination={
@@ -112,7 +114,7 @@ def send_email(sesclient:client, html:str) -> None:
 
 def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
     """This function returns any anomolies in a specific column over the last hour
-       we assume that any anomolies are 2.5 standard deviations above the mean."""
+       we assume that any anomolies are 2.5 standard deviations above or below the mean."""
 
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
@@ -127,17 +129,16 @@ def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
         merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x[column]) & (x[column] <= x['anomolous +']), axis=1)\
-              == False]
+        x['anomolous -'] <= x[column]) & (x[column] <= x['anomolous +']) is False, axis=1)]
     return merge_2[['plant_id', column]]
-
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
+
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {range(51)}
+    expected_values = set(range(51))
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
