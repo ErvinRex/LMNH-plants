@@ -91,6 +91,14 @@ def test_transform():
 
 
 def test_validate_keys():
+    expected_keys = {
+        "plant_id",
+        "botanist",
+        "name",
+        "origin_location",
+        "recording_taken",
+    }
+
     test_data = {
         "botanist": {
             "email": "email",
@@ -123,4 +131,4 @@ def test_validate_keys():
         "temperature": 13.2,
     }
 
-    assert validate_keys(test_data)
+    assert validate_keys(expected_keys, test_data)
