@@ -97,3 +97,4 @@ venv/
 data/
 .env
 pipeline/.env
+*.tfvars

@@ -3,14 +3,14 @@ Python script that extracts recent (24hr) plant data from LMNH
 and checks for anomalous readings, if present, sends an email using
 SES
 """
-from boto3 import client
-import os
-from datetime import datetime, timedelta, timezone
-import pandas as pd
 from os import environ as ENV
-from boto3 import client
+from datetime import datetime, timedelta, timezone
+
+import pandas as pd
 from dotenv import load_dotenv
 from pymssql import connect
+
+from boto3 import client
 
 
 def handler(event, context) -> dict:
@@ -26,7 +26,8 @@ def handler(event, context) -> dict:
     ) if not moist_df.empty else "<p>No moisture anomalies found.</p>"
     temp_html = temp_df.to_html(
     ) if not temp_df.empty else "<p>No temperature anomalies found.</p>"
-    missing_html = f"<h3>Missing plant IDs in the last hour: {missing_ids}</h3>" if missing_ids else "<p>All plant IDs reported in the last hour.</p>"
+    missing_html = f"<h3>Missing plant IDs in the last hour: {missing_ids}</h3>" if missing_ids \
+        else "<p>All plant IDs reported in the last hour.</p>"
 
     combined_html = f"""
     <html>
@@ -126,7 +127,9 @@ def get_anomolous_moisture(df: pd.DataFrame) -> pd.DataFrame:
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
         x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
-    return merge_2[['plant_id', 'soil_moisture']]
+    return merge_2[['plant_id', 'soil_moisture']] 
+
+
 
 
 def get_anomolous_temp(df: pd.DataFrame) -> pd.DataFrame:
@@ -157,6 +160,6 @@ def get_missing_values(df: pd.DataFrame) -> set:
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {i for i in range(51)}
+    expected_values = {range(51)}
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
