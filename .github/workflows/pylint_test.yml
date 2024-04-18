@@ -1,5 +1,5 @@
 name: run-tests
-run-name: ${{ github.actor }}'s run.
+run-name: Testing and linting for ${{ github.actor }}'s changes.
 on: 
   pull_request:
     branches:
