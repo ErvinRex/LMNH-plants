@@ -129,10 +129,8 @@ def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
         merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x[column]) & (x[column] <= x['anomolous +']), axis=1)\
-              == False]
+        x['anomolous -'] <= x[column]) & (x[column] <= x['anomolous +']) is False, axis=1)]
     return merge_2[['plant_id', column]]
-
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
@@ -141,6 +139,6 @@ def get_missing_values(df: pd.DataFrame) -> set:
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {i for i in range(51)}
+    expected_values = set(range(51))
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
