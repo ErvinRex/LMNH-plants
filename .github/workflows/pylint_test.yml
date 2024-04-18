@@ -1,5 +1,5 @@
 name: run-tests
-run-name: ${{ github.actor }} run
+run-name: ${{ github.actor }}'s run.
 on: 
   push:
     branches:
@@ -7,14 +7,10 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
+  paths:
+      - 'pipeline/**'
 jobs:
-  speak:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Hello world!"
-
-  test:
+  test_pipeline:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -24,18 +20,18 @@ jobs:
         uses: actions/setup-python@v5
 
       - name: Install dependencies
-        run: pip install -r social_news/requirements.txt
+        run: pip install -r pipeline/requirements.txt
 
       - name: Run pytest
         run: pytest
         env:
-          DATABASE_IP: ${{ secrets.DATABASE_IP }}
-          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
-          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
-          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
-          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
 
-  lint:
+  lint_pipeline:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -45,29 +41,16 @@ jobs:
         uses: actions/setup-python@v5
 
       - name: Install dependencies
-        run: pip install -r social_news/requirements.txt
+        run: pip install -r pipeline/requirements.txt
 
       - name: Install pylint
         run: pip install pylint
 
       - name: Run pylint
-        run: pylint social_news/*.py --ignore-patterns=social_news/test_api.py --fail-under=6
+        run: pylint pipeline/*.py --ignore-patterns=test_ --fail-under=8.5
         env:
-          DATABASE_IP: ${{ secrets.DATABASE_IP }}
-          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
-          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
-          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
-          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    steps:
-    - name: Deploy to production server
-      uses: easingthemes/ssh-deploy@v2
-      with:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        SOURCE: ""
-        REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-        REMOTE_USER: ${{ secrets.REMOTE_USER }}
-        TARGET: ${{ secrets.REMOTE_TARGET }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
