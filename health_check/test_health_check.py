@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 from health_check import get_db_connection, get_df, send_email,\
-      get_anomolous_moisture, get_anomolous_temp, get_missing_values
+      get_anomolous_column, get_missing_values
 
 class TestHealthCheck(unittest.TestCase):
     """
@@ -82,7 +82,7 @@ class TestHealthCheck(unittest.TestCase):
         Ensures that the function correctly identifies and returns a dataframe with
         records that fall outside expected moisture levels.
         """
-        df = get_anomolous_moisture(self.example_data)
+        df = get_anomolous_column(self.example_data,'soil_moisture')
         self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
 
     def test_get_anomolous_temp(self):
@@ -92,7 +92,7 @@ class TestHealthCheck(unittest.TestCase):
         This method verifies that the function correctly processes the input 
         data and identifies temperature anomalies effectively.
         """
-        df = get_anomolous_temp(self.example_data)
+        df = get_anomolous_column(self.example_data,'temperature')
         self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
 
     def test_get_missing_values(self):
