@@ -7,7 +7,7 @@ on:
     paths:
       - 'pipeline/**'
 jobs:
-  test_pipeline:
+  test_and_lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -15,40 +15,23 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-
-      - name: Install dependencies
-        run: pip install -r pipeline/requirements.txt
-
-      - name: Install pytest
-        run: pip install pytest
-
-      - name: Run pytest
-        run: pytest pipeline
-        
-        env:
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-
-  lint_pipeline:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-
-      - name: Install dependencies
-        run: pip install -r pipeline/requirements.txt
 
       - name: Install pylint
         run: pip install pylint
 
-      - name: Run pylint
-        run: pylint pipeline/*.py --ignore-patterns=test_ --fail-under=8.5
+      - name: Get changes to pipeline
+        id: changed-pipeline
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+             pipeline/**.py
+
+      - name: Run pipeline linting and testing if files changed
+        if: steps.changed-pipeline.outputs.test_any_changed == 'true'
+        run: |
+          pip install -r pipeline/requirements.txt
+          pytest pipeline
+          pylint pipeline/*.py --ignore-patterns=test_ --fail-under=8.5
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_NAME: ${{ secrets.DB_NAME }}
