@@ -76,7 +76,7 @@ def get_db_connection(config: dict) -> client:
 def get_df(conn: None) -> pd.DataFrame:
     """Returns a Dataframe of the database"""
 
-    query = """ 
+    query = """
             SELECT *
             FROM s_beta.recording AS r
 
@@ -95,7 +95,8 @@ def send_email(sesclient, html) -> None:
         Source='trainee.dominic.chambers@sigmalabs.co.uk',
         Destination={
             'ToAddresses': [
-                'trainee.ervin.rexhepi@sigmalabs.co.uk', 'trainee.adam.osullivan@sigmalabs.co.uk', 'trainee.dominic.chambers@sigmalabs.co.uk']
+                'trainee.ervin.rexhepi@sigmalabs.co.uk', 'trainee.adam.osullivan@sigmalabs.co.uk',\
+                      'trainee.dominic.chambers@sigmalabs.co.uk']
         },
         Message={
             'Subject': {
@@ -126,8 +127,9 @@ def get_anomolous_moisture(df: pd.DataFrame) -> pd.DataFrame:
         merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
-    return merge_2[['plant_id', 'soil_moisture']] 
+        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1)\
+              == False]
+    return merge_2[['plant_id', 'soil_moisture']]
 
 
 
@@ -150,7 +152,8 @@ def get_anomolous_temp(df: pd.DataFrame) -> pd.DataFrame:
         merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
+        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1)\
+              == False]
     return merge_2[['plant_id', 'temperature']]
 
 

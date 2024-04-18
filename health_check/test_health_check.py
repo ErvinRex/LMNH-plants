@@ -1,8 +1,10 @@
+"""This file tests health_check.py"""
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta, timezone
 import pandas as pd
-from health_check import get_db_connection, get_df, send_email, get_anomolous_moisture, get_anomolous_temp, get_missing_values
+from health_check import get_db_connection, get_df, send_email,\
+      get_anomolous_moisture, get_anomolous_temp, get_missing_values
 
 class TestHealthCheck(unittest.TestCase):
     """
@@ -17,7 +19,8 @@ class TestHealthCheck(unittest.TestCase):
         """
         Set up the test environment before each test.
         This method prepares a mock database connection and a mock SES client for sending emails.
-        It also creates an example dataframe that mimics the data structure expected from database queries.
+        It also creates an example dataframe that mimics the data structure expected 
+        from database queries.
         """
         self.example_data = pd.DataFrame({
             'plant_id': [1, 2, 3],
@@ -76,7 +79,7 @@ class TestHealthCheck(unittest.TestCase):
     def test_get_anomolous_moisture(self):
         """
         Test the detection of anomalous moisture levels.
-        Ensures that the function correctly identifies and returns a dataframe with 
+        Ensures that the function correctly identifies and returns a dataframe with
         records that fall outside expected moisture levels.
         """
         df = get_anomolous_moisture(self.example_data)
@@ -96,7 +99,8 @@ class TestHealthCheck(unittest.TestCase):
         """
         Test the identification of missing values in the dataset.
 
-        This method ensures that the function accurately finds and returns a set of columns with missing data.
+        This method ensures that the function accurately finds and returns 
+        a set of columns with missing data.
         """
         missing_values = get_missing_values(self.example_data)
         self.assertIsInstance(missing_values, set)
