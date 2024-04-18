@@ -27,7 +27,7 @@ class TestHealthCheck(unittest.TestCase):
             'temperature': [20, 21, 22],
             'soil_moisture': [30, 32, 34],
             'recording_taken': [
-                datetime.now(timezone.utc) - timedelta(hours=1),
+                datetime.now() - timedelta(hours=1),
                 datetime.now(timezone.utc) - timedelta(hours=1.5),
                 datetime.now(timezone.utc) - timedelta(hours=2)
             ]
