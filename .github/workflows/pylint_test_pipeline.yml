@@ -1,0 +1,67 @@
+name: run-tests
+run-name: ${{ github.actor }} run
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  test_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Install dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run pytest
+        run: pytest
+        env:
+          DATABASE_IP: ${{ secrets.DATABASE_IP }}
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+
+  lint_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Install dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Install pylint
+        run: pip install pylint
+
+      - name: Run pylint
+        run: pylint pipeline/*.py --ignore-patterns=pipeline/test_*.py --fail-under=8.5
+        env:
+          DATABASE_IP: ${{ secrets.DATABASE_IP }}
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+    - name: Deploy to production server
+      uses: easingthemes/ssh-deploy@v2
+      with:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SOURCE: ""
+        REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+        REMOTE_USER: ${{ secrets.REMOTE_USER }}
+        TARGET: ${{ secrets.REMOTE_TARGET }}

@@ -1,4 +1,6 @@
 pandas
+pylint
+pytest
 python-dotenv
-pymssql
 boto3
+pymssql

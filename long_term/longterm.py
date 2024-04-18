@@ -124,7 +124,7 @@ def reset_recording(conn: connect) -> None:
                     last_watered DATETIME2,
                     soil_moisture DECIMAL(8, 4) NOT NULL,
                     temperature DECIMAL(8, 4) NOT NULL,
-                    image_id BIGINT NOT NULL,
+                    image_id BIGINT,
                         FOREIGN KEY (image_id) REFERENCES s_beta.image(image_id) ON DELETE CASCADE,
                     botanist_id INT NOT NULL,
                         FOREIGN KEY (botanist_id) REFERENCES s_beta.botanist(botanist_id) ON DELETE CASCADE
