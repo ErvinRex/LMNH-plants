@@ -81,7 +81,6 @@ def get_df(conn: None) -> pd.DataFrame:
             FROM s_beta.recording AS r
 
             """
-
     with conn.cursor() as cur:
         cur.execute(query)
         rows = cur.fetchall()
@@ -133,7 +132,7 @@ def get_anomolous_moisture(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_anomolous_temp(df: pd.DataFrame) -> pd.DataFrame:
-    """This function returns any anomolies in temperature over the last hour
+    """This function returns any anomolies in temperature over the last hour,
        we assume that any anomolies are 2.5 standard deviations above the mean."""
 
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
