@@ -1,8 +1,10 @@
+"""This file tests health_check.py"""
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta, timezone
 import pandas as pd
-from health_check import get_db_connection, get_df, send_email, get_anomolous_moisture, get_anomolous_temp, get_missing_values
+from health_check import get_db_connection, get_df, send_email,\
+      get_anomolous_column, get_missing_values
 
 class TestHealthCheck(unittest.TestCase):
     """
@@ -17,7 +19,8 @@ class TestHealthCheck(unittest.TestCase):
         """
         Set up the test environment before each test.
         This method prepares a mock database connection and a mock SES client for sending emails.
-        It also creates an example dataframe that mimics the data structure expected from database queries.
+        It also creates an example dataframe that mimics the data structure expected 
+        from database queries.
         """
         self.example_data = pd.DataFrame({
             'plant_id': [1, 2, 3],
@@ -37,7 +40,7 @@ class TestHealthCheck(unittest.TestCase):
         self.mock_db_conn.cursor.return_value.__enter__.return_value = self.mock_cursor
         self.mock_cursor.fetchall.return_value = self.example_data.to_dict('records')
 
-    
+
         self.ses_client_patcher = patch('health_check.client')
         self.mock_ses_client = self.ses_client_patcher.start()
 
@@ -76,10 +79,10 @@ class TestHealthCheck(unittest.TestCase):
     def test_get_anomolous_moisture(self):
         """
         Test the detection of anomalous moisture levels.
-        Ensures that the function correctly identifies and returns a dataframe with 
+        Ensures that the function correctly identifies and returns a dataframe with
         records that fall outside expected moisture levels.
         """
-        df = get_anomolous_moisture(self.example_data)
+        df = get_anomolous_column(self.example_data,'soil_moisture')
         self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
 
     def test_get_anomolous_temp(self):
@@ -89,14 +92,15 @@ class TestHealthCheck(unittest.TestCase):
         This method verifies that the function correctly processes the input 
         data and identifies temperature anomalies effectively.
         """
-        df = get_anomolous_temp(self.example_data)
+        df = get_anomolous_column(self.example_data,'temperature')
         self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
 
     def test_get_missing_values(self):
         """
         Test the identification of missing values in the dataset.
 
-        This method ensures that the function accurately finds and returns a set of columns with missing data.
+        This method ensures that the function accurately finds and returns 
+        a set of columns with missing data.
         """
         missing_values = get_missing_values(self.example_data)
         self.assertIsInstance(missing_values, set)

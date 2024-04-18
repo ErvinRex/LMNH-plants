@@ -15,11 +15,12 @@ from boto3 import client
 
 def handler(event, context) -> dict:
     """This function makes the lambda function work  """
+
     conn = get_db_connection(ENV)
     df = get_df(conn)
     load_dotenv()
-    moist_df = get_anomolous_moisture(df)
-    temp_df = get_anomolous_temp(df)
+    moist_df = get_anomolous_column(df,'soil_moisture')
+    temp_df = get_anomolous_column(df,'temperature')
     missing_ids = get_missing_values(df)
 
     moist_html = moist_df.to_html(
@@ -73,10 +74,10 @@ def get_db_connection(config: dict) -> client:
     )
 
 
-def get_df(conn: None) -> pd.DataFrame:
+def get_df(conn: connect) -> pd.DataFrame:
     """Returns a Dataframe of the database"""
 
-    query = """ 
+    query = """
             SELECT *
             FROM s_beta.recording AS r
 
@@ -89,13 +90,15 @@ def get_df(conn: None) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def send_email(sesclient, html) -> None:
+def send_email(sesclient:client, html:str) -> None:
     """Sends email using BOTO3"""
+
     sesclient.send_email(
         Source='trainee.dominic.chambers@sigmalabs.co.uk',
         Destination={
             'ToAddresses': [
-                'trainee.ervin.rexhepi@sigmalabs.co.uk', 'trainee.adam.osullivan@sigmalabs.co.uk', 'trainee.dominic.chambers@sigmalabs.co.uk']
+                'trainee.ervin.rexhepi@sigmalabs.co.uk', 'trainee.adam.osullivan@sigmalabs.co.uk',\
+                      'trainee.dominic.chambers@sigmalabs.co.uk']
         },
         Message={
             'Subject': {
@@ -109,57 +112,35 @@ def send_email(sesclient, html) -> None:
         })
 
 
-def get_anomolous_moisture(df: pd.DataFrame) -> pd.DataFrame:
-    """This function returns any anomolies in moisture over the last hour
-       we assume that any anomolies are 2.5 standard deviations above the mean."""
+def get_anomolous_column(df: pd.DataFrame,column:str) -> pd.DataFrame:
+    """This function returns any anomolies in a specific column over the last hour
+       we assume that any anomolies are 2.5 standard deviations above or below the mean."""
 
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
-    mean_moist = df.groupby('plant_id')['soil_moisture'].mean().reset_index()
-    std_moist = df.groupby('plant_id')['soil_moisture'].std().reset_index()
-    merged_df = pd.merge(mean_moist, std_moist, on='plant_id').rename(
-        columns={'soil_moisture_x': 'mean', 'soil_moisture_y': 'std'})
+    mean = df.groupby('plant_id')[column].mean().reset_index()
+    std = df.groupby('plant_id')[column].std().reset_index()
+    merged_df = pd.merge(mean, std, on='plant_id').rename(
+        columns={f'{column}_x': 'mean', f'{column}_y': 'std'})
     merged_df['anomolous +'] = merged_df['mean'] + \
         merged_df['std'].apply(lambda x: x*2.5)
-    merged_df['anomolous -'] = merged_df['mean'] - \
+    merged_df['anomolous -'] =merged_df['mean'] - \
         merged_df['std'].apply(lambda x: x*2.5)
     merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
     merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
-    return merge_2[['plant_id', 'soil_moisture']] 
-
-
-
-
-def get_anomolous_temp(df: pd.DataFrame) -> pd.DataFrame:
-    """This function returns any anomolies in temperature over the last hour
-       we assume that any anomolies are 2.5 standard deviations above the mean."""
-
-    last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
-    df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
-    df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
-    mean_temperature = df.groupby(
-        'plant_id')['temperature'].mean().reset_index()
-    std_temperature = df.groupby('plant_id')['temperature'].std().reset_index()
-    merged_df = pd.merge(mean_temperature, std_temperature, on='plant_id').rename(
-        columns={'temperature_x': 'mean', 'temperature_y': 'std'})
-    merged_df['anomolous +'] = merged_df['mean'] + \
-        merged_df['std'].apply(lambda x: x*2.5)
-    merged_df['anomolous -'] = merged_df['mean'] - \
-        merged_df['std'].apply(lambda x: x*2.5)
-    merge_2 = pd.merge(merged_df, df_in_last_hour, on='plant_id')
-    merge_2 = merge_2[merge_2.apply(lambda x: (
-        x['anomolous -'] <= x['temperature']) & (x['temperature'] <= x['anomolous +']), axis=1) == False]
-    return merge_2[['plant_id', 'temperature']]
+        x['anomolous -'] <= x[column]) & (x[column] <= x['anomolous +']), axis=1)\
+              == False]
+    return merge_2[['plant_id', column]]
 
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
+
     last_hour = pd.Timestamp(datetime.now(timezone.utc)-timedelta(hours=1))
     df['recording_taken'] = pd.to_datetime(df['recording_taken'], utc=True)
     df_in_last_hour = df[(df['recording_taken'] >= last_hour)]
     values_in_hour = set(df_in_last_hour['plant_id'].unique().tolist())
-    expected_values = {range(51)}
+    expected_values = {i for i in range(51)}
     ids_not_found = expected_values-values_in_hour
     return ids_not_found
