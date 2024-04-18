@@ -1,9 +1,9 @@
 # Variable secrets on local terraform.tfvars file
-variable "AWS_ACCESS_KEY_ID" {
+variable "AWS_KEY" {
     type = string
 }
 
-variable "AWS_SECRET_ACCESS_KEY" {
+variable "AWS_SKEY" {
     type = string
 }
 
