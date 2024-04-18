@@ -42,8 +42,106 @@ jobs:
       - name: Run pipeline linting if files changed
         if: steps.changed-pipeline.outputs.any_changed == 'true'
         run: |
-          pip install -r pipeline/requirements.txt
           pylint pipeline/*.py --ignore-patterns=test_ --fail-under=8.5
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+
+        - name: Get changes to health_check
+        id: changed-health_check
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+             health_check/**.py
+
+
+        - name: Run health_check testing if files changed
+        if: steps.changed-health_check.outputs.any_changed == 'true'
+        run: |
+          pip install -r health_check/requirements.txt
+          pytest health_check
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+
+        - name: Run health_check linting if files changed
+        if: steps.changed-health_check.outputs.any_changed == 'true'
+        run: |
+          pylint health_check/*.py --ignore-patterns=test_ --fail-under=8.5
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+
+        - name: Get changes to dashboard
+        id: changed-dashboard
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+             dashboard/**.py
+
+
+        - name: Run dashboard testing if files changed
+        if: steps.changed-dashboard.outputs.any_changed == 'true'
+        run: |
+          pip install -r dashboard/requirements.txt
+          pytest dashboard
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+
+        - name: Run dashboard linting if files changed
+        if: steps.changed-dashboard.outputs.any_changed == 'true'
+        run: |
+          pylint dashboard/*.py --ignore-patterns=test_ --fail-under=8.5
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+        
+
+        - name: Get changes to long_term
+        id: changed-long_term
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+             long_term/**.py
+
+
+        - name: Run long_term testing if files changed
+        if: steps.changed-long_term.outputs.any_changed == 'true'
+        run: |
+          pip install -r long_term/requirements.txt
+          pytest long_term
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+
+
+        - name: Run long_term linting if files changed
+        if: steps.changed-long_term.outputs.any_changed == 'true'
+        run: |
+          pylint long_term/*.py --ignore-patterns=test_ --fail-under=8.5
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_NAME: ${{ secrets.DB_NAME }}
