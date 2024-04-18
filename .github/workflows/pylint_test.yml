@@ -1,13 +1,10 @@
 name: run-tests
 run-name: ${{ github.actor }}'s run.
 on: 
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-  paths:
+    paths:
       - 'pipeline/**'
 jobs:
   test_pipeline:
@@ -27,6 +24,7 @@ jobs:
 
       - name: Run pytest
         run: pytest pipeline
+        
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_NAME: ${{ secrets.DB_NAME }}
