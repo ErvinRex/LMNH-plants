@@ -22,8 +22,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r pipeline/requirements.txt
 
+      - name: Install pytest
+        run: pip install pytest
+
       - name: Run pytest
-        run: pytest
+        run: pytest pipeline
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_NAME: ${{ secrets.DB_NAME }}
