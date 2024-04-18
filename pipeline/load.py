@@ -4,7 +4,7 @@ from pymssql import Connection, Cursor
 
 from entities import Recording, Origin, Plant, Image, Botanist
 
-# Hello TEST2
+# NEWTSET
 
 
 def upload_data(data: list[Recording], conn: Connection) -> None:
