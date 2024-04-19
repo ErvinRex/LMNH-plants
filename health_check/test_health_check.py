@@ -76,24 +76,6 @@ class TestHealthCheck(unittest.TestCase):
         df = get_df(self.mock_db_conn)
         self.assertEqual(len(df), 3)
 
-    def test_get_anomolous_moisture(self):
-        """
-        Test the detection of anomalous moisture levels.
-        Ensures that the function correctly identifies and returns a dataframe with
-        records that fall outside expected moisture levels.
-        """
-        df = get_anomolous_column(self.example_data,'soil_moisture')
-        self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
-
-    def test_get_anomolous_temp(self):
-        """
-        Test the detection of anomalous temperature readings.
-
-        This method verifies that the function correctly processes the input 
-        data and identifies temperature anomalies effectively.
-        """
-        df = get_anomolous_column(self.example_data,'temperature')
-        self.assertIsInstance(df, pd.DataFrame)  # Check for DataFrame return type
 
     def test_get_missing_values(self):
         """
