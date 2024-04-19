@@ -70,8 +70,9 @@ def get_plant_details(conn: connect, plant_id_selected: int) -> tuple:
 
     plant_name = row.get('plant_name')
     scientific_name = row.get('scientific_name')
-    origin = f"{row.get('country_code', '(country_code)')}, {row.get(
-        'place_name', '(place_name)')}, {row.get('timezone', '(timezone)')}"
+    origin = f"{row.get('country_code', '(country_code)')}, \
+        {row.get('place_name', '(place_name)')}, \
+            {row.get('timezone', '(timezone)')}"
 
     return plant_name, scientific_name, origin
 
@@ -257,7 +258,7 @@ def download_longterm_csvs(client: client,
     system(f"mkdir {directory}")
 
     for filename in filenames:
-        path = f"{directory}/{filename.replace("/", "_")}"
+        path = f"{directory}/{filename.replace('/', '_')}"
         client.download_file(bucket, filename, path)
 
 
