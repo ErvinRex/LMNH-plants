@@ -82,7 +82,7 @@ def get_plant_details(conn: connect, plant_id: int) -> tuple:
     origin = f"{plant.get('country_code', '(country_code)')}, \
         {plant.get('place_name', '(place_name)')}, \
             {plant.get('timezone', '(timezone)')}"
-    botanists = "\n".join([f"{botanist['first_name']} {botanist['last_name']} ({botanist["botanist_id"]})"
+    botanists = "\n".join([f"{botanist['first_name']} {botanist['last_name']} ({botanist['botanist_id']})"
                            for botanist in botanists])
 
     return plant_name, scientific_name, origin, botanists
