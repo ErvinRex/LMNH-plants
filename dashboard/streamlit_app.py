@@ -53,28 +53,39 @@ def get_timespan_slider(unit: str, span: int, key: str) -> int:
 
 
 # ========== FUNCTIONS: ST.METRICS ==========
-def get_plant_details(conn: connect, plant_id_selected: int) -> tuple:
+def get_plant_details(conn: connect, plant_id: int) -> tuple:
     """Returns the relevant plant_id details to be displayed."""
 
     with conn.cursor() as curr:
-        query = """
-                SELECT p.plant_id, p.plant_name, p.scientific_name, o.place_name, o.country_code, o.timezone
-                FROM s_beta.plant AS p
-                LEFT JOIN s_beta.origin AS o
-                    ON p.origin_id = o.origin_id
-                WHERE p.plant_id = %d
-                """
+        plant_query = """
+                    SELECT p.plant_id, p.plant_name, p.scientific_name, o.place_name, o.country_code, o.timezone
+                    FROM s_beta.plant AS p
+                    LEFT JOIN s_beta.origin AS o
+                        ON p.origin_id = o.origin_id
+                    WHERE p.plant_id = %d
+                    """
+        curr.execute(plant_query, plant_id)
+        plant = curr.fetchone()
+        botanist_query = """
+                        SELECT b.botanist_id, b.first_name, b.last_name
+                        FROM s_beta.recording AS r
+                        JOIN s_beta.botanist AS b
+                            ON r.botanist_id = b.botanist_id
+                        WHERE r.plant_id = %d
+                        GROUP BY b.botanist_id, b.first_name, b.last_name
+                        """
+        curr.execute(botanist_query, plant_id)
+        botanists = curr.fetchall()
 
-        curr.execute(query, plant_id_selected)
-        row = curr.fetchone()
+    plant_name = plant.get('plant_name')
+    scientific_name = plant.get('scientific_name')
+    origin = f"{plant.get('country_code', '(country_code)')}, \
+        {plant.get('place_name', '(place_name)')}, \
+            {plant.get('timezone', '(timezone)')}"
+    botanists = "\n".join([f"{botanist['first_name']} {botanist['last_name']} ({botanist['botanist_id']})"
+                           for botanist in botanists])
 
-    plant_name = row.get('plant_name')
-    scientific_name = row.get('scientific_name')
-    origin = f"{row.get('country_code', '(country_code)')}, \
-        {row.get('place_name', '(place_name)')}, \
-            {row.get('timezone', '(timezone)')}"
-
-    return plant_name, scientific_name, origin
+    return plant_name, scientific_name, origin, botanists
 
 
 def get_total_plant_count(conn: connect) -> int:
@@ -357,14 +368,15 @@ if __name__ == "__main__":
     with st.sidebar:
         sidebar_plant_id = get_plant_selection(connection, "sidebar_plant_id")
 
-    st.sidebar.subheader("Plant Summary", divider="rainbow")
+        st.subheader("Plant Summary", divider="rainbow")
 
-    plant_name, scientific_name, origin = get_plant_details(
-        connection, sidebar_plant_id)
+        plant_name, scientific_name, origin, botanists = get_plant_details(
+            connection, sidebar_plant_id)
 
-    st.sidebar.write(f"Plant Name: {plant_name}")
-    st.sidebar.write(f"Scientific Name: {scientific_name}")
-    st.sidebar.write(f"Country, Location, Timezone: {origin}")
+        st.write(f"Plant Name: {plant_name}")
+        st.write(f"Scientific Name: {scientific_name}")
+        st.write(f"Country, Location, Timezone: {origin}")
+        st.write(f"Botanists: {botanists}")
 
     # ===== DASHBOARD: MAIN =====
     basic, stds = st.columns([.7, .3], gap="large")
