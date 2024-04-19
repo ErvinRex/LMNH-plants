@@ -150,10 +150,6 @@ def get_anomalous_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
         )
     ]
     return pd.merge(merge_2,df_in_last_hour,on='plant_id')['temperature_x']
-load_dotenv()
-conn = get_db_connection(ENV)
-df = get_df(conn)
-print(get_anomalous_column(df,'temperature'))
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
