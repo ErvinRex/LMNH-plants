@@ -313,27 +313,6 @@ def get_historical_graph(df: pd.DataFrame,
 
     return graphs
 
-    mean = 50  # example mean
-    sd = 10    # example standard deviation
-    min_val = 20  # example minimum value
-    max_val = 80  # example maximum value
-
-    # Generate data points for a normal distribution
-    x = np.linspace(min_val, max_val, 1000)
-    pdf = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean)/sd)**2)
-
-    # Create a DataFrame
-    data = pd.DataFrame({
-        'x': x,
-        'pdf': pdf
-    })
-
-    # Make the chart
-    chart = alt.Chart(data).mark_line().encode(
-        x='x',
-        y='pdf'
-    )
-
 
 if __name__ == "__main__":
 
@@ -342,8 +321,8 @@ if __name__ == "__main__":
     connection = get_db_connection(ENV)
 
     S3 = client('s3',
-                aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-                aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"])
+                aws_access_key_id=ENV["AWS_KEY"],
+                aws_secret_access_key=ENV["AWS_SKEY"])
 
     # ===== DASHBOARD: PAGE SETTING =====
     st.set_page_config(page_title="LMNH Plant Dashboard", page_icon="🌿", layout="wide",
@@ -410,13 +389,6 @@ if __name__ == "__main__":
             historical_graphs = get_historical_graph(
                 summary_df, historical_plant_id)
             st.altair_chart(historical_graphs, use_container_width=True)
-
-            # historical_graphs = st.columns(2)
-            # with historical_graphs[0]:
-            #     st.altair_chart(historical_soil, use_container_width=True)
-            # with historical_graphs[1]:
-            #     st.altair_chart(historical_temp, use_container_width=True)
-            st.write()
 
     with stds:
         st.subheader("Top Real-time SD")
