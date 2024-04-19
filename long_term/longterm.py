@@ -35,7 +35,7 @@ def get_data(conn: connect) -> pd.DataFrame:
         rows = cur.fetchall()
 
     df = pd.DataFrame(rows)[
-        ["recording_taken", "plant_id", "plant_name", "scientific_name", "soil_moisture", "temperature"]]
+        ["recording_taken", "plant_id", "soil_moisture", "temperature"]]
 
     df = df.astype({"soil_moisture": "float64",
                     "temperature": "float64"})
@@ -48,7 +48,7 @@ def get_summary(df: pd.DataFrame) -> pd.DataFrame:
     """Gets 1 mean per parameter per plant.
     Returns pd.DF."""
 
-    df = df.drop(columns=["recording_taken", "plant_name", "scientific_name"])
+    df = df.drop(columns=["recording_taken"])
 
     df = df.groupby(["plant_id"], as_index=False
                     ).agg(["mean", "std", "min", "max"]
@@ -146,22 +146,22 @@ if __name__ == "__main__":
     connection = get_db_connection(ENV)
 
     S3 = client('s3',
-                aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-                aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"])
+                aws_access_key_id=ENV["AWS_KEY"],
+                aws_secret_access_key=ENV["AWS_SKEY"])
 
     # ===== extract data =====
     data = get_data(connection)
 
-    # ===== transform data =====
+    # # ===== transform data =====
     summary = get_summary(data)
     anomalies = get_anomalies(data)
 
-    # ===== load data =====
+    # # ===== load data =====
     summary.to_csv("summary.csv", index=False)
     anomalies.to_csv("anomalies.csv", index=False)
 
     upload_object(S3, "summary.csv")
     upload_object(S3, "anomalies.csv")
 
-    # ===== reset 24h recordings =====
+    # # ===== reset 24h recordings =====
     reset_recording(connection)
