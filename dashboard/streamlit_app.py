@@ -9,6 +9,7 @@ from re import fullmatch
 from dotenv import load_dotenv
 from boto3 import client
 from pymssql import connect
+import numpy as np
 import pandas as pd
 import altair as alt
 import streamlit as st
@@ -69,8 +70,8 @@ def get_plant_details(conn: connect, plant_id_selected: int) -> tuple:
 
     plant_name = row.get('plant_name')
     scientific_name = row.get('scientific_name')
-    origin = f"{row.get('country_code', "(country_code)")}, {row.get('place_name', "(place_name)")}, {
-        row.get('timezone', "(timezone)")}"
+    origin = f"{row.get('country_code', '(country_code)')}, {row.get(
+        'place_name', '(place_name)')}, {row.get('timezone', '(timezone)')}"
 
     return plant_name, scientific_name, origin
 
@@ -275,6 +276,27 @@ def get_historical_graph(df: pd.DataFrame,
                          plant_id: int,
                          current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
     """Returns historical data as a line graph."""
+
+    mean = 50  # example mean
+    sd = 10    # example standard deviation
+    min_val = 20  # example minimum value
+    max_val = 80  # example maximum value
+
+    # Generate data points for a normal distribution
+    x = np.linspace(min_val, max_val, 1000)
+    pdf = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean)/sd)**2)
+
+    # Create a DataFrame
+    data = pd.DataFrame({
+        'x': x,
+        'pdf': pdf
+    })
+
+    # Make the chart
+    chart = alt.Chart(data).mark_line().encode(
+        x='x',
+        y='pdf'
+    )
 
 
 if __name__ == "__main__":
