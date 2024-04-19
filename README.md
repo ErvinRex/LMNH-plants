@@ -19,7 +19,7 @@ A full data pipeline, hosted in the cloud (using a variety of software listed be
 
 1. Connect to `LMNH Plant API` consisting of all relevant plant data.
 2. Retrieve plant data and clean it of extreme values or errors.
-3. Transform plant data into a data frame conforming to `RDS` entity-relationship diagram.
+3. Transform plant data into objects conforming to `RDS` entity-relationship diagram.
 4. Upload plant data to short-term storage solution - `RDS`.
 
 ### Entity-relationship diagram:
