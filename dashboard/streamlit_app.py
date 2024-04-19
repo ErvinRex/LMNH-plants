@@ -2,7 +2,7 @@
 Python script for visualising and hosting a dashboard for LMNH plant data
 """
 
-from os import environ as ENV, system
+from os import environ as ENV, system, listdir
 from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 from re import fullmatch
@@ -27,42 +27,7 @@ def get_db_connection(config: dict) -> connect:
     )
 
 
-def check_within_timeframe(month: int,
-                           filename: str,
-                           current: datetime = datetime.today()) -> bool:
-
-    split = [int(num) for num in filename.split("/")[:3]]
-    file_date = datetime(split[0], split[1], split[2])
-
-    return file_date >= (current - relativedelta(month=month))
-
-
-def get_longterm_csv_names(client: client,
-                           month: int,
-                           bucket: str = "late-ordovician") -> str:
-    """Returns list of filenames of summary/anomalies.csv within a given timespan."""
-
-    filenames = [obj["Key"] for obj
-                 in client.list_objects(Bucket=bucket)["Contents"]
-                 if bool(fullmatch(r".{11}(?:summary|anomalies).csv", obj["Key"]))
-                 and check_within_timeframe(month, obj["Key"])]
-
-    return filenames
-
-
-def download_object(client: client,
-                    filenames: list[str],
-                    bucket: str = "late-ordovician",
-                    directory: str = "data") -> None:
-    """Returns a list of objects names in a named bucket in an S3 server."""
-
-    system(f"mkdir {directory}")
-
-    for filename in filenames:
-        path = f'{directory}/{filename}'
-        client.download_file(bucket, filename, path)
-
-
+# ========== FUNCTIONS: ST.SELECTIONS ==========
 def get_plant_selection(conn: connect, key: str) -> int:
     """Returns the filter variables for filtering charts from streamlit multi-select"""
 
@@ -86,6 +51,7 @@ def get_timespan_slider(unit: str, span: int, key: str) -> int:
                             key=key)
 
 
+# ========== FUNCTIONS: ST.METRICS ==========
 def get_plant_details(conn: connect, plant_id_selected: int) -> tuple:
     """Returns the relevant plant_id details to be displayed."""
 
@@ -145,6 +111,7 @@ def get_avg_metric(conn: connect,
     return round(avg), round(avg-avg_prev, 2)
 
 
+# ========== FUNCTIONS: REAL-TIME DATA ==========
 def get_realtime_df(conn: connect) -> pd.DataFrame:
     """Returns real-time data as a pd.DF."""
 
@@ -180,7 +147,7 @@ def get_realtime_graph(df: pd.DataFrame,
             "H", include_groups=False).mean().reset_index()
 
     base = alt.Chart(df).encode(
-        x=alt.X("recording_taken:T", title="time", axis=alt.Axis(format='%H:%M')))
+        x=alt.X("recording_taken:T", title="time", axis=alt.Axis(format='%H:%M'))).properties(height=250)
     soil = base.mark_line(stroke="turquoise").encode(
         alt.Y("soil_moisture", title="soil moisture"))
     temp = base.mark_line(stroke="orangered").encode(
@@ -213,6 +180,7 @@ def get_std(row: dict, df: pd.DataFrame, col: str) -> int:
 
 def get_realtime_stds(df: pd.DataFrame,
                       current: datetime = datetime.now(timezone.utc)):
+    """Returns top real-time standard deviations as a bar chart."""
 
     df = df[(current - df["recording_taken"]) <= timedelta(hours=1)]
 
@@ -251,6 +219,64 @@ def get_realtime_stds(df: pd.DataFrame,
     return chart
 
 
+# ========== FUNCTIONS: HISTORICAL DATA =========
+def check_within_timeframe(month: int,
+                           filename: str,
+                           current: datetime = datetime.today()) -> bool:
+
+    split = [int(num) for num in filename.split("/")[:3]]
+    file_date = datetime(split[0], split[1], split[2])
+
+    return file_date >= (current - relativedelta(month=month))
+
+
+def get_longterm_csv_names(client: client,
+                           month: int,
+                           bucket: str = "late-ordovician") -> list[str]:
+    """Returns a list of filenames of summary/anomalies.csv
+    within a given time span."""
+
+    filenames = [obj["Key"] for obj
+                 in client.list_objects(Bucket=bucket)["Contents"]
+                 if bool(fullmatch(r".{11}(?:summary|anomalies).csv", obj["Key"]))
+                 and check_within_timeframe(month, obj["Key"])]
+
+    return filenames
+
+
+def download_longterm_csvs(client: client,
+                           month: int,
+                           bucket: str = "late-ordovician",
+                           directory: str = "data") -> None:
+    """Downloads a list of objects from an S3 bucket.
+    Returns nothing."""
+
+    filenames = get_longterm_csv_names(client, month, bucket)
+
+    system(f"mkdir {directory}")
+
+    for filename in filenames:
+        path = f"{directory}/{filename.replace("/", "_")}"
+        client.download_file(bucket, filename, path)
+
+
+def combine_csvs(info: str, directory: str = "data") -> pd.DataFrame:
+    """Return CSVs with the same type of data as pd.DF."""
+
+    files = listdir(directory)
+    csvs = [pd.read_csv(f"{directory}/{file}")
+            for file in files
+            if info in file]
+    df = pd.concat(csvs, ignore_index=True)
+    return df
+
+
+def get_historical_graph(df: pd.DataFrame,
+                         plant_id: int,
+                         current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
+    """Returns historical data as a line graph."""
+
+
 if __name__ == "__main__":
 
     load_dotenv()
@@ -282,8 +308,6 @@ if __name__ == "__main__":
     st.sidebar.write(f"Country, Location, Timezone: {origin}")
 
     # ===== DASHBOARD: MAIN =====
-    realtime_df = get_realtime_df(connection)
-
     basic, stds = st.columns([.7, .3], gap="large")
 
     with basic:
@@ -299,7 +323,8 @@ if __name__ == "__main__":
             st.metric("avg temperature", temp_avg, temp_delta, "off")
 
         st.subheader("Real-time Soil Moisture and Temperature")
-        realtime_col = st.columns([.15, .85])
+        realtime_df = get_realtime_df(connection)
+        realtime_col = st.columns([.15, .85], gap="medium")
         with realtime_col[0]:
             realtime_plant_id = get_plant_selection(
                 connection, "realtime_plant_id")
@@ -314,14 +339,18 @@ if __name__ == "__main__":
             )
 
         st.subheader("Historical Soil Moisture and Temperature")
-        historical = st.columns([.15, .85])
+        historical = st.columns([.15, .85], gap="medium")
         with historical[0]:
             historical_plant_id = get_plant_selection(
                 connection, "historical_plant_id")
             historical_timespan = get_timespan_slider(
                 "months", 12, "historical_timespan")
         with historical[1]:
-            pass
+            download_longterm_csvs(S3, historical_timespan)
+            summary_df = combine_csvs("summary")
+            anomalies_df = combine_csvs("anomalies")
+
+            st.write(summary_df)
 
     with stds:
         st.subheader("Top Real-time SD")
@@ -329,6 +358,6 @@ if __name__ == "__main__":
         st.altair_chart(realtime_std, use_container_width=True)
 
         st.subheader("Top Historical SD")
-        st.write(get_longterm_csv_names(S3, 1))
+        st.write(anomalies_df)
 
     connection.close()
