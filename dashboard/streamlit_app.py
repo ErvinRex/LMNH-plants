@@ -113,6 +113,31 @@ def get_avg_metric(conn: connect,
     return round(avg), round(avg-avg_prev, 2)
 
 
+# ========== FUNCTIONS: GRAPHING ==========
+def create_top_std_chart(df: pd.DataFrame) -> alt.Chart:
+    """Returns a barchart of standard deviations sorted by total."""
+
+    chart = alt.Chart(df).transform_fold(
+        ["soil_moisture_nstd", "temperature_nstd"],
+        as_=["metric", "stds"]
+    ).mark_bar().encode(
+        y=alt.Y('plant_id:N',
+                title="plant id",
+                sort=alt.EncodingSortField(field='total_nstd',
+                                           order='descending')),
+        x=alt.X('stds:Q',
+                axis=alt.Axis(title='standard deviation',
+                              orient='top')),
+        color=alt.Color('metric:N',
+                        legend=None,
+                        scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
+                                        range=['turquoise', 'orangered'])),
+        order=alt.Order("stds:Q", sort='descending')
+    )
+
+    return chart
+
+
 # ========== FUNCTIONS: REAL-TIME DATA ==========
 def get_realtime_df(conn: connect) -> pd.DataFrame:
     """Returns real-time data as a pd.DF."""
@@ -181,7 +206,7 @@ def get_std(row: dict, df: pd.DataFrame, col: str) -> int:
 
 
 def get_realtime_stds(df: pd.DataFrame,
-                      current: datetime = datetime.now(timezone.utc)):
+                      current: datetime = datetime.now(timezone.utc)) -> alt.Chart:
     """Returns top real-time standard deviations as a bar chart."""
 
     df = df[(current - df["recording_taken"]) <= timedelta(hours=1)]
@@ -200,23 +225,7 @@ def get_realtime_stds(df: pd.DataFrame,
 
     df = df.sort_values("total_nstd", ascending=False).head(10)
 
-    chart = alt.Chart(df).transform_fold(
-        ["soil_moisture_nstd", "temperature_nstd"],
-        as_=["metric", "stds"]
-    ).mark_bar().encode(
-        y=alt.Y('plant_id:N',
-                title="plant id",
-                sort=alt.EncodingSortField(field='total_nstd',
-                                           order='descending')),
-        x=alt.X('stds:Q',
-                axis=alt.Axis(title='standard deviation',
-                              orient='top')),
-        color=alt.Color('metric:N',
-                        legend=None,
-                        scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
-                                        range=['turquoise', 'orangered'])),
-        order=alt.Order("stds:Q", sort='descending')
-    )
+    chart = create_top_std_chart(df)
 
     return chart
 
@@ -294,7 +303,7 @@ def get_historical_graph(df: pd.DataFrame,
     soil_graph = alt.Chart(soil_df
                            ).mark_line(color="turquoise"
                                        ).encode(x=alt.X("soil moisture", axis=alt.Axis(titleColor='turquoise', labelColor='turquoise')),
-                                                y=alt.Y("pdf"))
+                                                y=alt.Y("pdf")).properties(width=250, height=200)
 
     temp_x = np.linspace(record["temperature_min"],
                          record["temperature_max"], 1000)
@@ -307,32 +316,24 @@ def get_historical_graph(df: pd.DataFrame,
     temp_graph = alt.Chart(temp_df
                            ).mark_line(color="orangered"
                                        ).encode(x=alt.X("temperature", axis=alt.Axis(titleColor='orangered', labelColor='orangered')),
-                                                y=alt.Y("pdf"))
+                                                y=alt.Y("pdf")).properties(width=250, height=200)
 
     graphs = alt.hconcat(soil_graph, temp_graph)
 
     return graphs
 
-    mean = 50  # example mean
-    sd = 10    # example standard deviation
-    min_val = 20  # example minimum value
-    max_val = 80  # example maximum value
 
-    # Generate data points for a normal distribution
-    x = np.linspace(min_val, max_val, 1000)
-    pdf = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean)/sd)**2)
+def get_historical_stds(df: pd.DataFrame) -> alt.Chart:
+    """Returns top historical standard deviations as a bar chart."""
 
-    # Create a DataFrame
-    data = pd.DataFrame({
-        'x': x,
-        'pdf': pdf
-    })
+    df = df[["plant_id", "soil_moisture_nstd", "temperature_nstd"]]
+    df["total_nstd"] = df["soil_moisture_nstd"] + df["temperature_nstd"]
+    df = df.groupby(["plant_id"], as_index=False).mean()
+    df = df.sort_values("total_nstd", ascending=False).head(10)
 
-    # Make the chart
-    chart = alt.Chart(data).mark_line().encode(
-        x='x',
-        y='pdf'
-    )
+    chart = create_top_std_chart(df)
+
+    return chart
 
 
 if __name__ == "__main__":
@@ -342,8 +343,8 @@ if __name__ == "__main__":
     connection = get_db_connection(ENV)
 
     S3 = client('s3',
-                aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-                aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"])
+                aws_access_key_id=ENV["AWS_KEY"],
+                aws_secret_access_key=ENV["AWS_SKEY"])
 
     # ===== DASHBOARD: PAGE SETTING =====
     st.set_page_config(page_title="LMNH Plant Dashboard", page_icon="🌿", layout="wide",
@@ -411,19 +412,13 @@ if __name__ == "__main__":
                 summary_df, historical_plant_id)
             st.altair_chart(historical_graphs, use_container_width=True)
 
-            # historical_graphs = st.columns(2)
-            # with historical_graphs[0]:
-            #     st.altair_chart(historical_soil, use_container_width=True)
-            # with historical_graphs[1]:
-            #     st.altair_chart(historical_temp, use_container_width=True)
-            st.write()
-
     with stds:
         st.subheader("Top Real-time SD")
         realtime_std = get_realtime_stds(realtime_df)
         st.altair_chart(realtime_std, use_container_width=True)
 
         st.subheader("Top Historical SD")
-        st.write(anomalies_df)
+        historical_std = get_historical_stds(anomalies_df)
+        st.altair_chart(historical_std, use_container_width=True)
 
     connection.close()
