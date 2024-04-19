@@ -291,8 +291,10 @@ def get_historical_graph(df: pd.DataFrame,
     soil_df = pd.DataFrame({"soil moisture": soil_x,
                             "pdf": soil_pdf})
 
-    soil_graph = alt.Chart(soil_df).mark_line().encode(x="soil moisture",
-                                                       y="pdf")
+    soil_graph = alt.Chart(soil_df
+                           ).mark_line(color="turquoise"
+                                       ).encode(x=alt.X("soil moisture", axis=alt.Axis(titleColor='turquoise', labelColor='turquoise')),
+                                                y=alt.Y("pdf"))
 
     temp_x = np.linspace(record["temperature_min"],
                          record["temperature_max"], 1000)
@@ -302,10 +304,14 @@ def get_historical_graph(df: pd.DataFrame,
     temp_df = pd.DataFrame({"temperature": temp_x,
                             "pdf": temp_pdf})
 
-    temp_graph = alt.Chart(temp_df).mark_line().encode(x="temperature",
-                                                       y="pdf")
+    temp_graph = alt.Chart(temp_df
+                           ).mark_line(color="orangered"
+                                       ).encode(x=alt.X("temperature", axis=alt.Axis(titleColor='orangered', labelColor='orangered')),
+                                                y=alt.Y("pdf"))
 
-    return soil_graph | temp_graph
+    graphs = alt.hconcat(soil_graph, temp_graph)
+
+    return graphs
 
     mean = 50  # example mean
     sd = 10    # example standard deviation
