@@ -113,6 +113,31 @@ def get_avg_metric(conn: connect,
     return round(avg), round(avg-avg_prev, 2)
 
 
+# ========== FUNCTIONS: GRAPHING ==========
+def create_top_std_chart(df: pd.DataFrame) -> alt.Chart:
+    """Returns a barchart of standard deviations sorted by total."""
+
+    chart = alt.Chart(df).transform_fold(
+        ["soil_moisture_nstd", "temperature_nstd"],
+        as_=["metric", "stds"]
+    ).mark_bar().encode(
+        y=alt.Y('plant_id:N',
+                title="plant id",
+                sort=alt.EncodingSortField(field='total_nstd',
+                                           order='descending')),
+        x=alt.X('stds:Q',
+                axis=alt.Axis(title='standard deviation',
+                              orient='top')),
+        color=alt.Color('metric:N',
+                        legend=None,
+                        scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
+                                        range=['turquoise', 'orangered'])),
+        order=alt.Order("stds:Q", sort='descending')
+    )
+
+    return chart
+
+
 # ========== FUNCTIONS: REAL-TIME DATA ==========
 def get_realtime_df(conn: connect) -> pd.DataFrame:
     """Returns real-time data as a pd.DF."""
@@ -181,7 +206,7 @@ def get_std(row: dict, df: pd.DataFrame, col: str) -> int:
 
 
 def get_realtime_stds(df: pd.DataFrame,
-                      current: datetime = datetime.now(timezone.utc)):
+                      current: datetime = datetime.now(timezone.utc)) -> alt.Chart:
     """Returns top real-time standard deviations as a bar chart."""
 
     df = df[(current - df["recording_taken"]) <= timedelta(hours=1)]
@@ -200,23 +225,7 @@ def get_realtime_stds(df: pd.DataFrame,
 
     df = df.sort_values("total_nstd", ascending=False).head(10)
 
-    chart = alt.Chart(df).transform_fold(
-        ["soil_moisture_nstd", "temperature_nstd"],
-        as_=["metric", "stds"]
-    ).mark_bar().encode(
-        y=alt.Y('plant_id:N',
-                title="plant id",
-                sort=alt.EncodingSortField(field='total_nstd',
-                                           order='descending')),
-        x=alt.X('stds:Q',
-                axis=alt.Axis(title='standard deviation',
-                              orient='top')),
-        color=alt.Color('metric:N',
-                        legend=None,
-                        scale=alt.Scale(domain=['soil_moisture_nstd', 'temperature_nstd'],
-                                        range=['turquoise', 'orangered'])),
-        order=alt.Order("stds:Q", sort='descending')
-    )
+    chart = create_top_std_chart(df)
 
     return chart
 
@@ -278,26 +287,53 @@ def get_historical_graph(df: pd.DataFrame,
                          current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
     """Returns historical data as a line graph."""
 
-    mean = 50  # example mean
-    sd = 10    # example standard deviation
-    min_val = 20  # example minimum value
-    max_val = 80  # example maximum value
+    df = df.groupby(["plant_id", "plant_name", "scientific_name"],
+                    as_index=False).mean()
 
-    # Generate data points for a normal distribution
-    x = np.linspace(min_val, max_val, 1000)
-    pdf = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean)/sd)**2)
+    record = df[df["plant_id"] == plant_id].iloc[0].to_dict()
 
-    # Create a DataFrame
-    data = pd.DataFrame({
-        'x': x,
-        'pdf': pdf
-    })
+    soil_x = np.linspace(record["soil_moisture_min"],
+                         record["soil_moisture_max"], 1000)
+    soil_pdf = (1 / (record["soil_moisture_std"] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((soil_x - record["soil_moisture_mean"])
+                       / record["soil_moisture_std"])**2)
+    soil_df = pd.DataFrame({"soil moisture": soil_x,
+                            "pdf": soil_pdf})
 
-    # Make the chart
-    chart = alt.Chart(data).mark_line().encode(
-        x='x',
-        y='pdf'
-    )
+    soil_graph = alt.Chart(soil_df
+                           ).mark_line(color="turquoise"
+                                       ).encode(x=alt.X("soil moisture", axis=alt.Axis(titleColor='turquoise', labelColor='turquoise')),
+                                                y=alt.Y("pdf")).properties(width=250, height=200)
+
+    temp_x = np.linspace(record["temperature_min"],
+                         record["temperature_max"], 1000)
+    temp_pdf = (1 / (record["temperature_std"] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((temp_x - record["temperature_mean"])
+                       / record["temperature_std"])**2)
+    temp_df = pd.DataFrame({"temperature": temp_x,
+                            "pdf": temp_pdf})
+
+    temp_graph = alt.Chart(temp_df
+                           ).mark_line(color="orangered"
+                                       ).encode(x=alt.X("temperature", axis=alt.Axis(titleColor='orangered', labelColor='orangered')),
+                                                y=alt.Y("pdf")).properties(width=250, height=200)
+
+    graphs = alt.hconcat(soil_graph, temp_graph)
+
+    return graphs
+
+
+def get_historical_stds(df: pd.DataFrame) -> alt.Chart:
+    """Returns top historical standard deviations as a bar chart."""
+
+    df = df[["plant_id", "soil_moisture_nstd", "temperature_nstd"]]
+    df["total_nstd"] = df["soil_moisture_nstd"] + df["temperature_nstd"]
+    df = df.groupby(["plant_id"], as_index=False).mean()
+    df = df.sort_values("total_nstd", ascending=False).head(10)
+
+    chart = create_top_std_chart(df)
+
+    return chart
 
 
 if __name__ == "__main__":
@@ -307,8 +343,8 @@ if __name__ == "__main__":
     connection = get_db_connection(ENV)
 
     S3 = client('s3',
-                aws_access_key_id=ENV["AWS_ACCESS_KEY_ID"],
-                aws_secret_access_key=ENV["AWS_SECRET_ACCESS_KEY"])
+                aws_access_key_id=ENV["AWS_KEY"],
+                aws_secret_access_key=ENV["AWS_SKEY"])
 
     # ===== DASHBOARD: PAGE SETTING =====
     st.set_page_config(page_title="LMNH Plant Dashboard", page_icon="🌿", layout="wide",
@@ -372,8 +408,9 @@ if __name__ == "__main__":
             download_longterm_csvs(S3, historical_timespan)
             summary_df = combine_csvs("summary")
             anomalies_df = combine_csvs("anomalies")
-
-            st.write(summary_df)
+            historical_graphs = get_historical_graph(
+                summary_df, historical_plant_id)
+            st.altair_chart(historical_graphs, use_container_width=True)
 
     with stds:
         st.subheader("Top Real-time SD")
@@ -381,6 +418,7 @@ if __name__ == "__main__":
         st.altair_chart(realtime_std, use_container_width=True)
 
         st.subheader("Top Historical SD")
-        st.write(anomalies_df)
+        historical_std = get_historical_stds(anomalies_df)
+        st.altair_chart(historical_std, use_container_width=True)
 
     connection.close()
