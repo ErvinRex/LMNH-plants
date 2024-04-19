@@ -278,6 +278,35 @@ def get_historical_graph(df: pd.DataFrame,
                          current: datetime = datetime.now(timezone.utc)) -> st.altair_chart:
     """Returns historical data as a line graph."""
 
+    df = df.groupby(["plant_id", "plant_name", "scientific_name"],
+                    as_index=False).mean()
+
+    record = df[df["plant_id"] == plant_id].iloc[0].to_dict()
+
+    soil_x = np.linspace(record["soil_moisture_min"],
+                         record["soil_moisture_max"], 1000)
+    soil_pdf = (1 / (record["soil_moisture_std"] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((soil_x - record["soil_moisture_mean"])
+                       / record["soil_moisture_std"])**2)
+    soil_df = pd.DataFrame({"soil moisture": soil_x,
+                            "pdf": soil_pdf})
+
+    soil_graph = alt.Chart(soil_df).mark_line().encode(x="soil moisture",
+                                                       y="pdf")
+
+    temp_x = np.linspace(record["temperature_min"],
+                         record["temperature_max"], 1000)
+    temp_pdf = (1 / (record["temperature_std"] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((temp_x - record["temperature_mean"])
+                       / record["temperature_std"])**2)
+    temp_df = pd.DataFrame({"temperature": temp_x,
+                            "pdf": temp_pdf})
+
+    temp_graph = alt.Chart(temp_df).mark_line().encode(x="temperature",
+                                                       y="pdf")
+
+    return soil_graph | temp_graph
+
     mean = 50  # example mean
     sd = 10    # example standard deviation
     min_val = 20  # example minimum value
@@ -372,8 +401,16 @@ if __name__ == "__main__":
             download_longterm_csvs(S3, historical_timespan)
             summary_df = combine_csvs("summary")
             anomalies_df = combine_csvs("anomalies")
+            historical_graphs = get_historical_graph(
+                summary_df, historical_plant_id)
+            st.altair_chart(historical_graphs, use_container_width=True)
 
-            st.write(summary_df)
+            # historical_graphs = st.columns(2)
+            # with historical_graphs[0]:
+            #     st.altair_chart(historical_soil, use_container_width=True)
+            # with historical_graphs[1]:
+            #     st.altair_chart(historical_temp, use_container_width=True)
+            st.write()
 
     with stds:
         st.subheader("Top Real-time SD")
