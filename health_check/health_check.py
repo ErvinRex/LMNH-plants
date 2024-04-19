@@ -61,7 +61,7 @@ def handler(event, context) -> dict:
     if not moist_df.empty or not temp_df.empty or missing_ids:
         ses_client = client(
             "ses",
-            aws_access_key_id=ENV["AWS_K"],
+            aws_access_key_id=ENV["AWS_KEY"],
             aws_secret_access_key=ENV["AWS_SKEY"],
             region_name="eu-west-2",
         )
@@ -92,7 +92,6 @@ def get_df(conn: connect) -> pd.DataFrame:
     query = """
             SELECT *
             FROM s_beta.recording AS r
-
             """
 
     with conn.cursor() as cur:
@@ -121,34 +120,40 @@ def send_email(sesclient: client, html: str) -> None:
     )
 
 
-def get_anomolous_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
-    """This function returns any anomolies in a specific column over the last hour
-    we assume that any anomolies are 2.5 standard deviations above or below the mean."""
+def get_anomalous_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """This function returns any anomalies in a specific column over the last hour
+    we assume that any anomalies are 2.5 standard deviations above or below the mean."""
 
     last_hour = pd.Timestamp(datetime.now(timezone.utc) - timedelta(hours=1))
     df["recording_taken"] = pd.to_datetime(df["recording_taken"], utc=True)
     df_in_last_hour = df[(df["recording_taken"] >= last_hour)]
-    mean = df.groupby("plant_id")[column].mean().reset_index()
-    std = df.groupby("plant_id")[column].std().reset_index()
+    mean = df.groupby("plant_id")[column].mean()
+    std = df.groupby("plant_id")[column].std()
+
     merged_df = pd.merge(mean, std, on="plant_id").rename(
         columns={f"{column}_x": "mean", f"{column}_y": "std"}
     )
-    merged_df["anomolous +"] = merged_df["mean"] + merged_df["std"].apply(
+    merged_df["anomalous +"] = merged_df["mean"] + merged_df["std"].apply(
         lambda x: x * 2.5
     )
-    merged_df["anomolous -"] = merged_df["mean"] - merged_df["std"].apply(
+    merged_df["anomalous -"] = merged_df["mean"] - merged_df["std"].apply(
         lambda x: x * 2.5
     )
+
     merge_2 = pd.merge(merged_df, df_in_last_hour, on="plant_id")
+
     merge_2 = merge_2[
         merge_2.apply(
-            lambda x: (x["anomolous -"] <= x[column]) & (x[column] <= x["anomolous +"])
-            is False,
+            lambda x: (x["anomalous -"] <= x[column]) & (x[column] <= x["anomalous +"])
+                      is False,
             axis=1,
         )
     ]
-    return merge_2[["plant_id", column]]
-
+    return pd.merge(merge_2,df_in_last_hour,on='plant_id')['temperature_x']
+load_dotenv()
+conn = get_db_connection(ENV)
+df = get_df(conn)
+print(get_anomalous_column(df,'temperature'))
 
 def get_missing_values(df: pd.DataFrame) -> set:
     """If any plants did not have a reading in the past hour we notify the stakeholders."""
