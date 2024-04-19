@@ -2,8 +2,9 @@ FROM python:latest
 
 WORKDIR /app
 
-COPY streamlit_app.py .
 COPY requirements.txt .
+COPY streamlit_app.py .
+COPY .streamlit /.streamlit
 
 RUN pip install -r requirements.txt
 
