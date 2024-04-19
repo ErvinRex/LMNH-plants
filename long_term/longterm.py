@@ -48,13 +48,13 @@ def get_summary(df: pd.DataFrame) -> pd.DataFrame:
     """Gets 1 mean per parameter per plant.
     Returns pd.DF."""
 
-    df = df.drop(columns=["recording_taken"])
+    df = df.drop(columns=["recording_taken", "plant_name", "scientific_name"])
 
-    df = df.groupby(["plant_id", "plant_name", "scientific_name"], as_index=False
+    df = df.groupby(["plant_id"], as_index=False
                     ).agg(["mean", "std", "min", "max"]
                           ).droplevel(1, axis=1)
 
-    df.columns = ['plant_id', 'plant_name', 'scientific_name'] + \
+    df.columns = ['plant_id'] + \
         [param+"_"+metric
          for param in ['soil_moisture', 'temperature']
          for metric in ["mean", "std", "min", "max"]]
